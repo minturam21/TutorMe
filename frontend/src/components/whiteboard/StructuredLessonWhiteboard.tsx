@@ -1,15 +1,58 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import type { Lesson } from "../../types/lesson";
-import type { Scene, VisualAction } from "../../types/visualAction";
+import type { Scene, SceneObject, VisualAction } from "../../types/visualAction";
 
 import { SceneManager } from "./engine/SceneManager";
 import { ActionExecutor } from "./engine/ActionExecutor";
+import TegakiTextRenderer from "./engine/TegakiTextRenderer";
 import WhiteboardCanvas from "./WhiteboardCanvas";
 
 interface StructuredLessonWhiteboardProps {
   lesson: Lesson;
+}
+
+interface HandwrittenTextLineProps {
+  id: string;
+  text: string;
+  fontSize?: number;
+  height?: number;
+}
+
+function HandwrittenTextLine({
+  id,
+  text,
+  fontSize = 32,
+  height = 76,
+}: HandwrittenTextLineProps) {
+  if (!text.trim()) return null;
+
+  const object: SceneObject = {
+    id,
+    type: "text",
+    properties: {
+      text,
+      x: 24,
+      y: fontSize + 8,
+      width: 1900,
+      height: height - 12,
+      font_size: fontSize,
+      color: "#1e293b",
+    },
+  };
+
+  return (
+    <svg
+      viewBox={`0 0 2000 ${height}`}
+      width="100%"
+      height={height}
+      role="img"
+      aria-label={text}
+      style={{ display: "block", overflow: "hidden" }}
+    >
+      <TegakiTextRenderer object={object} progress={1} />
+    </svg>
+  );
 }
 
 const CREATION_ACTIONS = new Set([
@@ -116,10 +159,7 @@ export default function StructuredLessonWhiteboard({
           onActionProgress: (action: VisualAction, _index, progress) => {
             setScene(manager.getScene());
 
-            if (
-              CREATION_ACTIONS.has(action.type) &&
-              action.target_id
-            ) {
+            if (CREATION_ACTIONS.has(action.type) && action.target_id) {
               setActiveDrawing({
                 objectId: action.target_id,
                 progress,
@@ -130,10 +170,7 @@ export default function StructuredLessonWhiteboard({
           onActionComplete: (action: VisualAction) => {
             setScene(manager.getScene());
 
-            if (
-              CREATION_ACTIONS.has(action.type) &&
-              action.target_id
-            ) {
+            if (CREATION_ACTIONS.has(action.type) && action.target_id) {
               setActiveDrawing(null);
             }
           },
@@ -173,11 +210,19 @@ export default function StructuredLessonWhiteboard({
   return (
     <div className="structured-whiteboard">
       <div className="structured-whiteboard-header">
-        <div>
-          <h2>{lesson.title}</h2>
-          <p>
-            Step {activeStepIndex + 1} of {lesson.steps.length}
-          </p>
+        <div style={{ width: "100%" }}>
+          <HandwrittenTextLine
+            id={`lesson-${lesson.id}-title`}
+            text={lesson.title}
+            fontSize={48}
+            height={100}
+          />
+          <HandwrittenTextLine
+            id={`lesson-${lesson.id}-step-${activeStep.id}`}
+            text={`Step ${activeStepIndex + 1} of ${lesson.steps.length}`}
+            fontSize={28}
+            height={64}
+          />
         </div>
       </div>
 
@@ -229,18 +274,37 @@ export default function StructuredLessonWhiteboard({
       <section className="structured-whiteboard-content">
         {activeStep.explanation.trim() && (
           <div className="structured-whiteboard-explanation">
-            <h3>What this step means</h3>
-            <p>{activeStep.explanation}</p>
+            <HandwrittenTextLine
+              id={`step-${activeStep.id}-explanation-heading`}
+              text="What this step means"
+              fontSize={30}
+              height={72}
+            />
+            <HandwrittenTextLine
+              id={`step-${activeStep.id}-explanation`}
+              text={activeStep.explanation}
+              fontSize={28}
+              height={180}
+            />
           </div>
         )}
 
         {activeStep.equations.length > 0 && (
           <div className="structured-whiteboard-equations">
-            <h3>Equations</h3>
+            <HandwrittenTextLine
+              id={`step-${activeStep.id}-equations-heading`}
+              text="Equations"
+              fontSize={30}
+              height={72}
+            />
             {activeStep.equations.map((equation, index) => (
-              <div key={`${activeStep.id}-${index}`}>
-                {equation}
-              </div>
+              <HandwrittenTextLine
+                key={`${activeStep.id}-equation-${index}`}
+                id={`step-${activeStep.id}-equation-${index}`}
+                text={equation}
+                fontSize={34}
+                height={82}
+              />
             ))}
           </div>
         )}
