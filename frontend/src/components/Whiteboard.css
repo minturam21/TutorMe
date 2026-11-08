@@ -1,0 +1,1254 @@
+
+/* =================================
+   WHITEBOARD MAIN LAYOUT
+================================= */
+
+.whiteboard {
+  width: 100%;
+  min-height: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  color: #202124;
+  box-sizing: border-box;
+}
+
+/* Header */
+
+.whiteboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.whiteboard-header h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.whiteboard-header p {
+  margin: 5px 0 0;
+  color: #777;
+  font-size: 13px;
+}
+
+.board-status {
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: #e9f7ef;
+  color: #16834a;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* =================================
+   TEACHING CANVAS
+================================= */
+
+.whiteboard-stage {
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background-color: #fbfcff;
+  background-image: radial-gradient(#d9dee8 1px, transparent 1px);
+  background-size: 22px 22px;
+  overflow: hidden;
+}
+
+.physics-lesson {
+  width: 100%;
+  max-width: 850px;
+  padding: 18px 16px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.physics-lesson h2 {
+  color: #1e293b;
+  font-size: 23px;
+  margin: 0 0 8px;
+}
+
+.physics-lesson > p {
+  color: #64748b;
+  font-size: 15px;
+}
+
+.step-explanation {
+  min-height: 48px;
+  max-width: 650px;
+  margin: 10px auto 12px;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.6;
+  animation: explanationAppear 0.6s ease both;
+}
+
+/* Diagram */
+
+.physics-diagram {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  max-height: 280px;
+  margin: 12px auto;
+  overflow: visible;
+}
+
+/* Equation */
+
+.physics-equation {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2563eb;
+  margin: 10px 0;
+}
+
+.equation-explanation {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.equation-explanation p {
+  margin: 4px 0;
+}
+
+/* =================================
+   ANIMATIONS
+================================= */
+
+.draw-ground {
+  stroke-dasharray: 500;
+  stroke-dashoffset: 500;
+  animation: drawLine 1s ease forwards;
+}
+
+.draw-block {
+  animation: blockAppear 0.8s ease both;
+}
+
+.draw-force line {
+  stroke-dasharray: 180;
+  stroke-dashoffset: 180;
+  animation: drawLine 1.2s ease forwards;
+}
+
+.draw-force text {
+  animation: explanationAppear 0.5s ease 0.8s both;
+}
+
+.draw-acceleration line {
+  stroke-dasharray: 180;
+  stroke-dashoffset: 180;
+  animation: drawLine 1.2s ease forwards;
+}
+
+.draw-acceleration text {
+  animation: explanationAppear 0.5s ease 0.8s both;
+}
+
+.equation-reveal {
+  animation: equationAppear 0.8s ease both;
+}
+
+.explanation-reveal {
+  animation: explanationAppear 0.8s ease both;
+}
+
+/* =================================
+   PROGRESS INDICATOR
+================================= */
+
+.lesson-progress {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.lesson-progress-fill {
+  height: 100%;
+  background: #6d4aff;
+  border-radius: 10px;
+  transition: width 0.4s ease;
+}
+
+.step-counter {
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* =================================
+   PLAYBACK CONTROLS
+================================= */
+
+.whiteboard-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.whiteboard-controls button {
+  min-width: 100px;
+  padding: 11px 18px;
+  border: 1px solid #ddd;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.whiteboard-controls button:hover:not(:disabled) {
+  background: #f0edff;
+  border-color: #8b75ff;
+}
+
+.whiteboard-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* =================================
+   KEYFRAMES
+================================= */
+
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes explanationAppear {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blockAppear {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes equationAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =================================
+   MOBILE RESPONSIVENESS
+================================= */
+
+@media (max-width: 700px) {
+  .whiteboard {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .whiteboard-header h2 {
+    font-size: 17px;
+  }
+
+  .physics-lesson {
+    padding: 14px 8px;
+  }
+
+  .physics-lesson h2 {
+    font-size: 19px;
+  }
+
+  .physics-diagram {
+    max-height: 220px;
+  }
+
+  .physics-equation {
+    font-size: 30px;
+  }
+
+  .equation-explanation {
+    gap: 10px;
+  }
+
+  .whiteboard-controls {
+    gap: 7px;
+  }
+
+  .whiteboard-controls button {
+    min-width: 85px;
+    padding: 10px;
+    font-size: 12px;
+  }
+}
+
+/* Respect reduced-motion preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  .draw-ground,
+  .draw-block,
+  .draw-force line,
+  .draw-force text,
+  .draw-acceleration line,
+  .draw-acceleration text,
+  .equation-reveal,
+  .explanation-reveal,
+  .step-explanation {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transform: none;
+  }
+}
+
+
+/* =================================
+   INTERACTIVE PHYSICS SIMULATION
+================================= */
+
+.simulation-panel {
+  width: 100%;
+  max-width: 850px;
+  margin: 12px auto;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.035);
+  box-sizing: border-box;
+}
+
+.simulation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.simulation-heading h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 17px;
+}
+
+.simulation-heading p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.simulation-reset {
+  padding: 8px 13px;
+  background: #f5f3ff;
+  color: #6847ce;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.simulation-reset:hover {
+  background: #ede9fe;
+}
+
+.simulation-slider {
+  margin: 18px 0;
+}
+
+.simulation-slider label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.simulation-slider label strong {
+  color: #2563eb;
+  font-size: 15px;
+}
+
+.simulation-slider input[type="range"] {
+  display: block;
+  width: 100%;
+  accent-color: #7259d9;
+  cursor: pointer;
+}
+
+.simulation-result {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.simulation-result > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 15px;
+  background: #f8f7ff;
+  border: 1px solid #e9e5ff;
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.simulation-result span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.simulation-result strong {
+  color: #5b43c4;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.simulation-note {
+  margin: 16px 0 0;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .simulation-panel {
+    padding: 14px;
+  }
+
+  .simulation-heading h3 {
+    font-size: 15px;
+  }
+
+  .simulation-result {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-result strong {
+    font-size: 16px;
+  }
+}
+
+
+/* =========================================
+   AI GENERATED LESSON WHITEBOARD
+========================================= */
+
+.ai-lesson-step,
+.lesson-objectives,
+.lesson-practice {
+  width: 100%;
+  max-width: 1000px;
+  margin: 20px auto;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  text-align: left;
+  color: #1e293b;
+}
+
+.whiteboard-header h2 {
+  color: #1e293b !important;
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.whiteboard-header p {
+  color: #64748b !important;
+}
+
+.whiteboard-stage {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 18px;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.lesson-objectives h3,
+.lesson-practice h3 {
+  margin: 0 0 16px;
+  color: #4338ca;
+  font-size: 20px;
+}
+
+.lesson-objectives ul {
+  margin: 0;
+  padding-left: 24px;
+}
+
+.lesson-objectives li {
+  margin: 10px 0;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.ai-lesson-step {
+  position: relative;
+  margin-top: 22px;
+  margin-bottom: 22px;
+  line-height: 1.7;
+}
+
+.ai-lesson-step h2 {
+  margin: 10px 0 14px;
+  color: #1e293b !important;
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.ai-lesson-step > p {
+  margin: 12px 0;
+  color: #475569 !important;
+  font-size: 16px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.step-label {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: 6px;
+  background: #ede9fe;
+  color: #5b43c4;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+}
+
+.ai-lesson-step .physics-equation {
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 10px;
+  background: #f8f7ff;
+  color: #4338ca;
+  font-size: 23px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.lesson-visual,
+.lesson-animation {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 10px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.lesson-visual {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
+
+.lesson-animation {
+  background: #f5f3ff;
+  border-left: 4px solid #8b5cf6;
+}
+
+.lesson-visual strong {
+  color: #1d4ed8;
+}
+
+.lesson-animation strong {
+  color: #6d28d9;
+}
+
+.lesson-visual p,
+.lesson-animation p {
+  margin: 8px 0 0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.lesson-practice p {
+  margin: 14px 0;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .whiteboard-stage {
+    padding: 8px;
+  }
+
+  .ai-lesson-step,
+  .lesson-objectives,
+  .lesson-practice {
+    padding: 15px;
+    margin: 12px auto;
+  }
+
+  .ai-lesson-step h2 {
+    font-size: 19px;
+  }
+
+  .ai-lesson-step > p {
+    font-size: 14px;
+  }
+
+  .lesson-objectives h3,
+  .lesson-practice h3 {
+    font-size: 18px;
+  }
+}
+
+
+/* =========================================
+   AI WHITEBOARD DIAGRAM RENDERER
+========================================= */
+
+.diagram-container {
+  width: 100%;
+  max-width: 850px;
+  margin: 20px auto;
+  padding: 16px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ai-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 200px;
+  background-color: #ffffff;
+  background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+  background-size: 20px 20px;
+  border-radius: 8px;
+}
+
+.ai-diagram text {
+  font-family: Arial, sans-serif;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .diagram-container {
+    padding: 8px;
+    margin: 12px auto;
+  }
+
+  .ai-diagram {
+    min-height: 150px;
+  }
+}
+
+/* Prevent the bottom input from covering lesson content */
+.whiteboard-stage {
+  padding-bottom: 180px !important;
+}
+
+.lesson-visual {
+  scroll-margin-bottom: 180px;
+}
+
+/* macOS-inspired sliding mode selector */
+
+.mode-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: #eeecf4;
+  border: 1px solid #e3dfed;
+  border-radius: 12px;
+}
+
+.mode-button {
+  position: relative;
+  z-index: 1;
+  min-width: 86px;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #686477;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition:
+    color 250ms ease,
+    transform 250ms ease;
+}
+
+.mode-button.active {
+  background: #5925b5;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(50, 30, 90, 0.2);
+}
+
+.mode-button:hover:not(.active) {
+  color: #5925b5;
+}
+
+.mode-button:active {
+  transform: scale(0.96);
+}
+
+.mode-button:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-button {
+    transition: none;
+  }
+}
+
+
+/* Progressive whiteboard drawing animation */
+
+.drawing-element {
+  animation: whiteboardElementReveal 0.45s ease-out both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes whiteboardElementReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.drawing-progress {
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 10px;
+}
+
+
+/* TutorMe lesson generation loading screen */
+
+.lesson-loading {
+  min-height: 65vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  box-sizing: border-box;
+  background: #f8f9ff;
+  border-radius: 16px;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e4dcfa;
+  border-top-color: #6525c5;
+  border-radius: 50%;
+  animation: tutorSpin 0.8s linear infinite;
+  margin-bottom: 24px;
+}
+
+.lesson-loading h2 {
+  color: #25213a;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.lesson-loading p {
+  max-width: 440px;
+  color: #656179;
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+.lesson-loading span {
+  color: #8b849f;
+  font-size: 13px;
+}
+
+@keyframes tutorSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    animation: none;
+  }
+}
+
+
+/* =====================================
+   TUTORME WHITEBOARD LAYOUT IMPROVEMENT
+===================================== */
+
+.whiteboard {
+  padding: 14px;
+  gap: 10px;
+  border-radius: 12px;
+}
+
+.whiteboard-stage {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px 16px 100px !important;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.lesson-objectives,
+.ai-lesson-step,
+.lesson-practice {
+  width: 100%;
+  max-width: 1100px;
+  margin: 8px auto;
+  padding: 18px 22px;
+  border-radius: 12px;
+}
+
+.ai-lesson-step h2 {
+  margin: 8px 0 10px;
+}
+
+.lesson-explanation {
+  line-height: 1.65;
+}
+
+.lesson-visual,
+.lesson-animation {
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.diagram-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 12px auto;
+  padding: 10px;
+}
+
+.ai-diagram {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+}
+
+.physics-equation {
+  margin: 12px 0;
+  padding: 12px;
+}
+
+@media (max-width: 700px) {
+  .whiteboard {
+    padding: 8px;
+  }
+
+  .whiteboard-stage {
+    padding: 8px 8px 90px !important;
+  }
+
+  .lesson-objectives,
+  .ai-lesson-step,
+  .lesson-practice {
+    padding: 14px;
+    margin: 8px auto;
+  }
+}
+
+
+/* =====================================
+   LESSON PLAYBACK CONTROLS
+===================================== */
+
+.lesson-playback {
+  width: 100%;
+  max-width: 1100px;
+  margin: 12px auto 18px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.playback-progress {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.playback-progress-fill {
+  height: 100%;
+  background: #6525c5;
+  border-radius: 20px;
+  transition: width 0.35s ease;
+}
+
+.playback-counter {
+  display: block;
+  margin: 12px 0;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.playback-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.playback-buttons button,
+.reveal-all-button {
+  padding: 10px 17px;
+  border: 1px solid #ddd6fe;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #4c1d95;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.playback-buttons button:hover:not(:disabled),
+.reveal-all-button:hover {
+  background: #f3efff;
+}
+
+.playback-buttons button:active,
+.reveal-all-button:active {
+  transform: scale(0.97);
+}
+
+.playback-buttons button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.playback-buttons .play-button {
+  background: #6525c5;
+  color: #ffffff;
+  border-color: #6525c5;
+  min-width: 85px;
+}
+
+.playback-buttons .play-button:hover {
+  background: #5120a0;
+}
+
+.reveal-all-button {
+  display: block;
+  margin: 0 auto 16px;
+}
+
+.ai-lesson-step.active-lesson-step {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+}
+
+@media (max-width: 600px) {
+  .playback-buttons {
+    gap: 6px;
+  }
+
+  .playback-buttons button {
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+}
+
+
+
+/* WHITEBOARD WELCOME SCREEN */
+
+.wb-welcome {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 55px 24px 45px;
+  box-sizing: border-box;
+}
+
+.wb-welcome-content {
+  width: 100%;
+  max-width: 950px;
+  text-align: center;
+  margin: 0 auto;
+}
+
+.wb-welcome-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  border-radius: 16px;
+  background: #eee7ff;
+  color: #7138cf;
+  font-size: 30px;
+}
+
+.wb-eyebrow {
+  color: #7946c7;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 2px;
+}
+
+.wb-welcome-content h1 {
+  margin: 16px 0;
+  color: var(--text-primary, #242033);
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.2;
+  font-weight: 750;
+}
+
+.wb-description {
+  max-width: 590px;
+  margin: 0 auto 36px;
+  color: var(--text-secondary, #777386);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.wb-welcome-content h3 {
+  margin-bottom: 18px;
+  color: var(--text-primary, #242033);
+  font-size: 17px;
+}
+
+.wb-subject-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.wb-subject-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 145px;
+  padding: 18px 14px;
+  text-align: left;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e8e5ef);
+  border-radius: 14px;
+  box-sizing: border-box;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.wb-subject-card:hover {
+  transform: translateY(-4px);
+  border-color: #9b78db;
+}
+
+.wb-subject-icon {
+  font-size: 27px;
+}
+
+.wb-subject-card strong {
+  color: var(--text-primary, #242033);
+  font-size: 14px;
+}
+
+.wb-subject-card > span:last-child {
+  color: var(--text-secondary, #777386);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.wb-examples {
+  margin-top: 35px;
+}
+
+.wb-examples > span {
+  display: block;
+  margin-bottom: 13px;
+  color: var(--text-secondary, #858092);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.wb-examples > div {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.wb-example {
+  padding: 9px 14px;
+  color: var(--text-secondary, #625b70);
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e8e5ef);
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.wb-bottom-hint {
+  margin-top: 35px;
+  color: var(--text-secondary, #858092);
+  font-size: 12px;
+}
+
+.wb-bottom-hint span {
+  color: #7946c7;
+  margin-right: 6px;
+}
+
+@media (max-width: 850px) {
+  .wb-subject-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 550px) {
+  .wb-subject-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wb-welcome {
+    padding: 25px 12px 90px;
+  }
+
+  .wb-subject-card {
+    min-height: 125px;
+  }
+}
+
+
+/* Compact AI lesson diagrams */
+.diagram-container {
+  width: 100%;
+  max-width: 680px;
+  margin: 14px auto;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.ai-diagram {
+  display: block;
+  width: 100%;
+  height: 300px;
+  min-height: 0;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+@media (max-width: 600px) {
+  .diagram-container {
+    max-width: 100%;
+    padding: 8px;
+  }
+
+  .ai-diagram {
+    height: 230px;
+    max-height: 230px;
+  }
+}
+
+
+/* Clickable subject cards and suggested topics */
+
+.wb-subject-card,
+.wb-example {
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.wb-subject-card {
+  width: 100%;
+}
+
+.wb-example {
+  line-height: 1.5;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.wb-example:hover {
+  background: #f3efff;
+  border-color: #9b78db;
+  transform: translateY(-2px);
+}
+
+.wb-subject-card:focus-visible,
+.wb-example:focus-visible {
+  outline: 2px solid #7946c7;
+  outline-offset: 3px;
+}

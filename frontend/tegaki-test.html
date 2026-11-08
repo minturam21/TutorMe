@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TutorMe Tegaki Test</title>
+  <style>
+    body { margin: 30px; background: #f3f0e8; font-family: Arial; }
+    main { max-width: 1000px; margin: auto; }
+    #stage {
+      min-height: 320px;
+      padding: 24px;
+      background: #fffdf7;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 42px;
+      line-height: 1.7;
+    }
+    .controls { display: flex; gap: 10px; margin-top: 18px; }
+    #seek { flex: 1; }
+  </style>
+</head>
+<body>
+  <main>
+    <h2>TutorMe — Tegaki Browser Rendering Test</h2>
+    <p>Math symbols are temporary placeholders using Caveat S strokes.</p>
+    <div id="stage"></div>
+    <div class="controls">
+      <button id="play">Play / Resume</button>
+      <button id="pause">Pause</button>
+      <button id="restart">Restart</button>
+      <button id="skip">Skip to End</button>
+      <input id="seek" type="range" min="0" max="1" step="0.01" value="0">
+      <span id="clock">0.00 / 0.00 s</span>
+    </div>
+    <p id="status">Initializing Tegaki...</p>
+  </main>
+  <script type="module" src="/tegaki-test.ts"></script>
+</body>
+</html>
