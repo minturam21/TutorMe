@@ -16,16 +16,22 @@ interface HandwrittenTextLineProps {
   id: string;
   text: string;
   fontSize?: number;
-  height?: number;
+  minHeight?: number;
 }
 
 function HandwrittenTextLine({
   id,
   text,
   fontSize = 32,
-  height = 76,
+  minHeight = 76,
 }: HandwrittenTextLineProps) {
   if (!text.trim()) return null;
+
+  const estimatedLines = text.split("\n").reduce(
+    (count, line) => count + Math.max(1, Math.ceil(line.length / 90)),
+    0
+  );
+  const height = Math.max(minHeight, estimatedLines * fontSize * 1.6 + 20);
 
   const object: SceneObject = {
     id,
@@ -215,13 +221,13 @@ export default function StructuredLessonWhiteboard({
             id={`lesson-${lesson.id}-title`}
             text={lesson.title}
             fontSize={48}
-            height={100}
+            minHeight={100}
           />
           <HandwrittenTextLine
             id={`lesson-${lesson.id}-step-${activeStep.id}`}
             text={`Step ${activeStepIndex + 1} of ${lesson.steps.length}`}
             fontSize={28}
-            height={64}
+            minHeight={64}
           />
         </div>
       </div>
@@ -278,13 +284,13 @@ export default function StructuredLessonWhiteboard({
               id={`step-${activeStep.id}-explanation-heading`}
               text="What this step means"
               fontSize={30}
-              height={72}
+              minHeight={72}
             />
             <HandwrittenTextLine
               id={`step-${activeStep.id}-explanation`}
               text={activeStep.explanation}
               fontSize={28}
-              height={180}
+              minHeight={180}
             />
           </div>
         )}
@@ -295,7 +301,7 @@ export default function StructuredLessonWhiteboard({
               id={`step-${activeStep.id}-equations-heading`}
               text="Equations"
               fontSize={30}
-              height={72}
+              minHeight={72}
             />
             {activeStep.equations.map((equation, index) => (
               <HandwrittenTextLine
@@ -303,7 +309,7 @@ export default function StructuredLessonWhiteboard({
                 id={`step-${activeStep.id}-equation-${index}`}
                 text={equation}
                 fontSize={34}
-                height={82}
+                minHeight={82}
               />
             ))}
           </div>
