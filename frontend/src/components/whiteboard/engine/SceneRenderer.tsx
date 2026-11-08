@@ -1,4 +1,3 @@
-
 import type { Scene, SceneObject } from "../../../types/visualAction";
 import DrawingRenderer from "./DrawingRenderer";
 import TegakiTextRenderer from "./TegakiTextRenderer";
@@ -7,12 +6,31 @@ interface SceneRendererProps {
   scene: Scene;
   width?: number;
   height?: number;
-
-  // Identifies the object currently being drawn.
   activeDrawing?: {
     objectId: string;
     progress: number;
   } | null;
+}
+
+function toHandwrittenTextObject(object: SceneObject): SceneObject {
+  const properties = object.properties;
+  const text =
+    object.type === "equation" ? properties.equation : properties.text;
+
+  return {
+    ...object,
+    type: "text",
+    properties: {
+      ...properties,
+      text: typeof text === "string" ? text : "",
+      font_size:
+        typeof properties.font_size === "number"
+          ? properties.font_size
+          : object.type === "equation"
+            ? 36
+            : 32,
+    },
+  };
 }
 
 export default function SceneRenderer({
@@ -53,16 +71,13 @@ export default function SceneRenderer({
 
         return (
           <g key={object.id}>
-            {object.type === "text" ? (
+            {object.type === "text" || object.type === "equation" ? (
               <TegakiTextRenderer
-                object={object}
+                object={toHandwrittenTextObject(object)}
                 progress={progress}
               />
             ) : (
-              <DrawingRenderer
-                object={object}
-                progress={progress}
-              />
+              <DrawingRenderer object={object} progress={progress} />
             )}
           </g>
         );
