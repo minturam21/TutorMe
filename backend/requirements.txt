@@ -1,0 +1,5 @@
+fastapi
+pydantic>=2,<3
+groq
+python-dotenv
+httpx
