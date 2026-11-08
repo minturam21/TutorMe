@@ -1,6 +1,6 @@
-
 import { useId } from "react";
 import type { SceneObject } from "../../../types/visualAction";
+import TegakiTextRenderer from "./TegakiTextRenderer";
 
 interface DrawingRendererProps {
   object: SceneObject;
@@ -64,7 +64,6 @@ export default function DrawingRenderer({
   const markerId = useId().replace(/:/g, "");
 
   const p = object.properties;
-
   const amount = Math.max(0, Math.min(1, progress));
 
   const x = getNumber(p, "x");
@@ -76,6 +75,7 @@ export default function DrawingRenderer({
   const fill = getString(p, "fill", "transparent");
   const color = getString(p, "color", "#1e293b");
   const strokeWidth = getNumber(p, "stroke_width", 4);
+  const label = getString(p, "label", "");
 
   const angle = getNumber(p, "angle");
   const scaleX = getNumber(p, "scale_x", 1);
@@ -167,10 +167,7 @@ export default function DrawingRenderer({
                 orient="auto"
                 markerUnits="strokeWidth"
               >
-                <path
-                  d="M 0 0 L 12 6 L 0 12 z"
-                  fill={stroke}
-                />
+                <path d="M 0 0 L 12 6 L 0 12 z" fill={stroke} />
               </marker>
             </defs>
           )}
@@ -195,7 +192,6 @@ export default function DrawingRenderer({
 
     case "polygon": {
       const suppliedPoints = getPoints(p.points);
-
       const points =
         suppliedPoints.length >= 3
           ? suppliedPoints
@@ -214,7 +210,6 @@ export default function DrawingRenderer({
 
     case "path": {
       const points = getPoints(p.points);
-
       const pathData = points
         .map(([px, py], index) =>
           `${index === 0 ? "M" : "L"} ${px} ${py}`
@@ -233,46 +228,11 @@ export default function DrawingRenderer({
       break;
     }
 
-    case "text": {
-      const text = getString(p, "text", "");
-      const fontSize = getNumber(p, "font_size", 32);
-
-      drawing = (
-        <text
-          x={0}
-          y={0}
-          fill={color}
-          fontSize={fontSize}
-          fontFamily="Arial, sans-serif"
-          opacity={amount}
-        >
-          {text}
-        </text>
-      );
-      break;
-    }
-
-    case "equation": {
-      const equation = getString(p, "equation", "");
-
-      drawing = (
-        <text
-          x={0}
-          y={0}
-          fill={color}
-          fontSize={36}
-          fontFamily="serif"
-          opacity={amount}
-        >
-          {equation}
-        </text>
-      );
-      break;
-    }
-
     default:
       return null;
   }
+
+  const labelWidth = Math.max(120, Math.min(width, 600));
 
   return (
     <g
@@ -286,18 +246,23 @@ export default function DrawingRenderer({
     >
       {drawing}
 
-      {typeof p.label === "string" && amount > 0 && (
-        <text
-          x={width / 2}
-          y={height / 2}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill={color}
-          fontSize={24}
-          opacity={amount}
-        >
-          {p.label}
-        </text>
+      {label && amount > 0 && (
+        <TegakiTextRenderer
+          object={{
+            id: `${object.id}-label`,
+            type: "text",
+            properties: {
+              text: label,
+              x: (width - labelWidth) / 2,
+              y: height / 2 + 12,
+              width: labelWidth,
+              height: 60,
+              font_size: 24,
+              color,
+            },
+          }}
+          progress={amount}
+        />
       )}
     </g>
   );
