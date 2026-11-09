@@ -1,4 +1,4 @@
-"""Groq strict JSON Schema for whiteboard action responses.
+"""Provider-neutral JSON Schema contract for whiteboard action responses.
 
 This transport schema constrains JSON shape. VisualAction/Pydantic remains
 responsible for validating action-specific parameter semantics.
