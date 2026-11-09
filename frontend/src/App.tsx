@@ -304,7 +304,7 @@ function App() {
   }
 
   // Temporary Tegaki handwriting test.
-  if (window.location.pathname === "/tegaki-test") {
+  if (window.location.pathname === "/hybrid-renderer-test") {
     return <TegakiTest />;
   }
   const isWhiteboardMode = tutorMode === "whiteboard";
