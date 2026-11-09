@@ -433,7 +433,7 @@ class ActionGeneratorTests(unittest.TestCase):
         ):
             ActionGenerator(provider).generate_actions(plan)
 
-        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(len(provider.calls), 3)
 
     def test_reject_duplicate_action_ids(self):
         with self.assertRaises(ActionGenerationError):
@@ -586,11 +586,11 @@ class ActionGeneratorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ActionGenerationError,
-            "failed after 2 attempts",
+            "failed after 3 attempts",
         ):
             ActionGenerator(provider).generate_actions(plan)
 
-        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(len(provider.calls), 3)
 
     def test_retries_groq_json_validation_failure_and_recovers(self):
         valid_response = json.dumps({
@@ -631,11 +631,11 @@ class ActionGeneratorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ActionGenerationError,
-            "failed after 2 attempts.*not valid JSON",
+            "failed after 3 attempts.*not valid JSON",
         ):
             ActionGenerator(provider).generate_actions(self.plan)
 
-        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(len(provider.calls), 3)
 
 
     def test_does_not_retry_action_generation_provider_errors(self):
@@ -693,11 +693,11 @@ class ActionGeneratorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ActionGenerationError,
-            "failed after 2 attempts.*height",
+            "failed after 3 attempts.*height",
         ):
             ActionGenerator(provider).generate_actions(self.plan)
 
-        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(len(provider.calls), 3)
 
 
 
