@@ -136,7 +136,7 @@ class ActionGeneratorTests(unittest.TestCase):
             "write_text",
         )
 
-    def test_uses_groq_strict_json_schema_and_strips_null_parameters(self):
+    def test_uses_strict_json_schema_contract_and_strips_null_parameters(self):
         note = self.make_handwritten_note()
         note["parameters"] = {
             key: None for key in PARAMETER_KEYS
