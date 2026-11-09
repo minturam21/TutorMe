@@ -341,7 +341,7 @@ Step IDs and event IDs must exactly match the original plan.
 
                     equation_actions.extend(action for action in validated_actions if action["type"] == "write_equation")
                     original_event["visual_actions"] = validated_actions
-                    flattened_actions.extend(validated_actions)
+                    flattened_actions.extend(copy.deepcopy(validated_actions))
 
                 if not has_handwritten_note:
                     raise ActionGenerationError(f"Step '{original_step['id']}' has no handwritten teaching note.")
@@ -353,6 +353,11 @@ Step IDs and event IDs must exactly match the original plan.
                     raise ActionGenerationError(f"Step '{original_step['id']}' is missing handwritten equation actions.")
                 if any(not action["parameters"].get("equation", "").strip() for action in equation_actions):
                     raise ActionGenerationError(f"Step '{original_step['id']}' contains an empty handwritten equation.")
+
+                # The legacy step-level list has one shared order namespace.
+                # Preserve event-local order values in teaching_events.
+                for global_order, action in enumerate(flattened_actions):
+                    action["order"] = global_order
 
                 original_step["visual_actions"] = flattened_actions
 
