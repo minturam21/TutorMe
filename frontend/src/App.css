@@ -1530,3 +1530,14 @@ button.send-button:disabled {
     padding: 15px;
   }
 }
+
+/* Keep the structured lesson player within the space above the composer. */
+.structured-whiteboard-canvas {
+  height: clamp(260px, 40vh, 420px);
+}
+
+@media (max-width: 700px) {
+  .structured-whiteboard-canvas {
+    height: clamp(220px, 34vh, 340px);
+  }
+}
