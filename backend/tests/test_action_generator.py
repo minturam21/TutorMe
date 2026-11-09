@@ -26,6 +26,7 @@ class ActionGeneratorTests(unittest.TestCase):
                     "id": "step_1",
                     "explanation": "Test explanation",
                     "equations": [],
+                    "teaching_events": [{"id": "event_1", "explanation": "Test segment"}],
                 }
             ],
         }
@@ -94,7 +95,7 @@ class ActionGeneratorTests(unittest.TestCase):
             "steps": [
                 {
                     "id": "step_1",
-                    "visual_actions": actions,
+                    "teaching_events": [{"id": "event_1", "visual_actions": actions}],
                 }
             ]
         }
