@@ -247,6 +247,95 @@ class ActionGeneratorTests(unittest.TestCase):
         with self.assertRaises(ActionGenerationError):
             generator.generate_actions(self.plan)
 
+    def test_retries_reordered_steps_instead_of_relabeling_them(self):
+        plan = self.make_two_step_plan()
+        reordered = {
+            "steps": [
+                self.make_generated_step("step_2", "event_2", "action_2"),
+                self.make_generated_step("step_1", "event_1", "action_1"),
+            ]
+        }
+        valid = {
+            "steps": [
+                self.make_generated_step("step_1", "event_1", "action_1"),
+                self.make_generated_step("step_2", "event_2", "action_2"),
+            ]
+        }
+        provider = SequenceAIProvider([json.dumps(reordered), json.dumps(valid)])
+
+        result = ActionGenerator(provider).generate_actions(plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(
+            [step["id"] for step in result["steps"]],
+            ["step_1", "step_2"],
+        )
+        self.assertIn("expected 'step_1'", provider.calls[1]["messages"][1]["content"])
+
+    def test_retries_reordered_events_instead_of_relabeling_them(self):
+        plan = self.make_two_step_plan()
+        plan["steps"][0]["teaching_events"].append(
+            {"id": "event_1b", "explanation": "Second segment"}
+        )
+        reordered_step = self.make_generated_step("step_1", "event_1b", "action_1b")
+        reordered_step["teaching_events"].append({
+            "id": "event_1",
+            "visual_actions": [
+                self.make_action(
+                    "action_1",
+                    "write_text",
+                    0,
+                    {"text": "First segment", "x": 100, "y": 100},
+                    target_id="step_1_note",
+                )
+            ],
+        })
+        valid_step = self.make_generated_step("step_1", "event_1", "action_1")
+        valid_step["teaching_events"].append({
+            "id": "event_1b",
+            "visual_actions": [
+                self.make_action(
+                    "action_1b",
+                    "write_text",
+                    0,
+                    {"text": "Second segment", "x": 100, "y": 200},
+                    target_id="step_1_note_2",
+                )
+            ],
+        })
+        second_step = self.make_generated_step("step_2", "event_2", "action_2")
+        provider = SequenceAIProvider([
+            json.dumps({"steps": [reordered_step, second_step]}),
+            json.dumps({"steps": [valid_step, second_step]}),
+        ])
+
+        result = ActionGenerator(provider).generate_actions(plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(
+            [event["id"] for event in result["steps"][0]["teaching_events"]],
+            ["event_1", "event_1b"],
+        )
+        self.assertIn("expected 'event_1'", provider.calls[1]["messages"][1]["content"])
+
+    def test_fails_after_retry_when_step_ids_remain_mismatched(self):
+        plan = self.make_two_step_plan()
+        mismatched = json.dumps({
+            "steps": [
+                self.make_generated_step("wrong_step", "event_1", "action_1"),
+                self.make_generated_step("step_2", "event_2", "action_2"),
+            ]
+        })
+        provider = SequenceAIProvider([mismatched, mismatched])
+
+        with self.assertRaisesRegex(
+            ActionGenerationError,
+            "failed after 2 attempts.*expected 'step_1'",
+        ):
+            ActionGenerator(provider).generate_actions(plan)
+
+        self.assertEqual(len(provider.calls), 2)
+
     def test_reject_duplicate_action_ids(self):
         with self.assertRaises(ActionGenerationError):
             self.generate([
