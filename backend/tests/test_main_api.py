@@ -1,6 +1,4 @@
-
 import unittest
-from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, call
 
 from fastapi.testclient import TestClient
@@ -73,45 +71,42 @@ class TestMainAPI(unittest.TestCase):
         self.assertIn("status", response.json())
 
     # --------------------------------
-    # GROQ CONFIGURATION
+    # AI PROVIDER CONFIGURATION
     # --------------------------------
 
-    @patch("main.client", None)
-    def test_ask_without_groq_key(self):
+    @patch("main.get_ai_provider", side_effect=main.HTTPException(
+        status_code=503, detail="No AI provider configured."
+    ))
+    def test_ask_without_ai_provider(self, mock_get_provider):
         response = self.client.post(
             "/ask",
             json={"message": "Explain Newton's laws"}
         )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 503)
 
-    @patch("main.client", None)
-    def test_stream_without_groq_key(self):
+    @patch("main.get_ai_provider", side_effect=main.HTTPException(
+        status_code=503, detail="No AI provider configured."
+    ))
+    def test_stream_without_ai_provider(self, mock_get_provider):
         response = self.client.post(
             "/ask/stream",
             json={"message": "Explain gravity"}
         )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 503)
 
     # --------------------------------
     # NORMAL AI RESPONSE
     # --------------------------------
 
-    @patch("main.client")
-    def test_successful_ask_response(self, mock_client):
-
-        mock_client.chat.completions.create.return_value = (
-            SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        message=SimpleNamespace(
-                            content="Newton's second law is F = ma."
-                        )
-                    )
-                ]
-            )
+    @patch("main.get_ai_provider")
+    def test_successful_ask_response(self, mock_get_provider):
+        mock_provider = MagicMock()
+        mock_provider.generate_response.return_value = (
+            "Newton's second law is F = ma."
         )
+        mock_get_provider.return_value = mock_provider
 
         response = self.client.post(
             "/ask",
@@ -123,40 +118,28 @@ class TestMainAPI(unittest.TestCase):
             response.json()["answer"],
             "Newton's second law is F = ma."
         )
+        mock_provider.generate_response.assert_called_once()
 
     # --------------------------------
     # SUCCESSFUL STREAMING
     # --------------------------------
 
     @patch("main.save_message")
-    @patch("main.client")
-    def test_successful_streaming(self, mock_client, mock_save):
-
-        chunks = [
-            SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        delta=SimpleNamespace(content="Newton's ")
-                    )
-                ]
-            ),
-            SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        delta=SimpleNamespace(content="second law ")
-                    )
-                ]
-            ),
-            SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        delta=SimpleNamespace(content="is F = ma.")
-                    )
-                ]
-            )
-        ]
-
-        mock_client.chat.completions.create.return_value = iter(chunks)
+    @patch("main.get_messages", return_value=[
+        {"role": "user", "content": "Explain Newton's second law"}
+    ])
+    @patch("main.get_ai_provider")
+    def test_successful_streaming(
+        self, mock_get_provider, mock_get_messages, mock_save
+    ):
+        mock_provider = MagicMock()
+        expected_answer = "Newton's second law is F = ma."
+        mock_provider.generate_stream.return_value = iter([
+            "Newton's ",
+            "second law ",
+            "is F = ma."
+        ])
+        mock_get_provider.return_value = mock_provider
 
         response = self.client.post(
             "/ask/stream",
@@ -166,8 +149,6 @@ class TestMainAPI(unittest.TestCase):
             }
         )
 
-        expected_answer = "Newton's second law is F = ma."
-
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.text, expected_answer)
 
@@ -175,20 +156,26 @@ class TestMainAPI(unittest.TestCase):
             call(1, "user", "Explain Newton's second law"),
             call(1, "assistant", expected_answer)
         ])
-
         self.assertEqual(mock_save.call_count, 2)
+        mock_provider.generate_stream.assert_called_once()
 
     # --------------------------------
     # STREAMING FAILURE
     # --------------------------------
 
     @patch("main.save_message")
-    @patch("main.client")
-    def test_streaming_failure(self, mock_client, mock_save):
-
-        mock_client.chat.completions.create.side_effect = (
-            RuntimeError("Mock Groq failure")
+    @patch("main.get_messages", return_value=[
+        {"role": "user", "content": "Explain gravity"}
+    ])
+    @patch("main.get_ai_provider")
+    def test_streaming_failure(
+        self, mock_get_provider, mock_get_messages, mock_save
+    ):
+        mock_provider = MagicMock()
+        mock_provider.generate_stream.side_effect = RuntimeError(
+            "Mock provider failure"
         )
+        mock_get_provider.return_value = mock_provider
 
         response = self.client.post(
             "/ask/stream",
