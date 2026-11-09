@@ -16,6 +16,19 @@ class FakeAIProvider:
         return self.response
 
 
+class SequenceAIProvider:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def generate_response(self, **kwargs):
+        self.calls.append(kwargs)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
 class ActionGeneratorTests(unittest.TestCase):
 
     def setUp(self):
@@ -295,6 +308,114 @@ class ActionGeneratorTests(unittest.TestCase):
                 None,
                 self.make_handwritten_note(),
             ])
+
+
+    def make_two_step_plan(self):
+        return {
+            "title": "Two-step retry lesson",
+            "steps": [
+                {
+                    "id": "step_1",
+                    "explanation": "First explanation",
+                    "equations": [],
+                    "teaching_events": [
+                        {"id": "event_1", "explanation": "First segment"}
+                    ],
+                },
+                {
+                    "id": "step_2",
+                    "explanation": "Second explanation",
+                    "equations": [],
+                    "teaching_events": [
+                        {"id": "event_2", "explanation": "Second segment"}
+                    ],
+                },
+            ],
+        }
+
+    def make_generated_step(self, step_id, event_id, action_id):
+        return {
+            "id": step_id,
+            "teaching_events": [
+                {
+                    "id": event_id,
+                    "visual_actions": [
+                        self.make_action(
+                            action_id,
+                            "write_text",
+                            0,
+                            {
+                                "text": f"Teaching note for {step_id}",
+                                "x": 100,
+                                "y": 100,
+                            },
+                            target_id=f"{step_id}_note",
+                        )
+                    ],
+                }
+            ],
+        }
+
+    def test_retries_incomplete_action_generation_and_recovers(self):
+        plan = self.make_two_step_plan()
+        incomplete_response = {
+            "steps": [
+                self.make_generated_step("step_1", "event_1", "action_1")
+            ]
+        }
+        complete_response = {
+            "steps": [
+                self.make_generated_step("step_1", "event_1", "action_1"),
+                self.make_generated_step("step_2", "event_2", "action_2"),
+            ]
+        }
+        provider = SequenceAIProvider([
+            json.dumps(incomplete_response),
+            json.dumps(complete_response),
+        ])
+
+        result = ActionGenerator(provider).generate_actions(plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(len(result["steps"]), 2)
+        self.assertIn(
+            "Generated 1 teaching steps",
+            provider.calls[1]["messages"][1]["content"],
+        )
+
+    def test_fails_after_retry_still_returns_wrong_step_count(self):
+        plan = self.make_two_step_plan()
+        incomplete_response = json.dumps({
+            "steps": [
+                self.make_generated_step("step_1", "event_1", "action_1")
+            ]
+        })
+        provider = SequenceAIProvider([
+            incomplete_response,
+            incomplete_response,
+        ])
+
+        with self.assertRaisesRegex(
+            ActionGenerationError,
+            "failed after 2 attempts",
+        ):
+            ActionGenerator(provider).generate_actions(plan)
+
+        self.assertEqual(len(provider.calls), 2)
+
+    def test_does_not_retry_action_generation_provider_errors(self):
+        provider = SequenceAIProvider([
+            RuntimeError("Mock provider failure"),
+            json.dumps({"steps": []}),
+        ])
+
+        with self.assertRaisesRegex(
+            ActionGenerationError,
+            "Mock provider failure",
+        ):
+            ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 1)
 
 
 
