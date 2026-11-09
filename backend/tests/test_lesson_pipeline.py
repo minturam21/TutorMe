@@ -73,34 +73,44 @@ class LessonPipelineTests(unittest.TestCase):
             "steps": [
                 {
                     "id": f"step_{i}",
-                    "visual_actions": [
+                    "teaching_events": [
                         {
-                            "id": f"note_{i}",
-                            "type": "write_text",
-                            "target_id": f"step_{i}_note",
-                            "parameters": {
-                                "text": "Motion is a change in position",
-                                "x": 100,
-                                "y": 100,
-                            },
-                            "duration": 2,
-                            "easing": "linear",
-                            "order": 0,
+                            "id": f"event_{i}_1",
+                            "visual_actions": [
+                                {
+                                    "id": f"note_{i}",
+                                    "type": "write_text",
+                                    "target_id": f"step_{i}_note",
+                                    "parameters": {
+                                        "text": "Motion is a change in position",
+                                        "x": 100,
+                                        "y": 100,
+                                    },
+                                    "duration": 2,
+                                    "easing": "linear",
+                                    "order": 0,
+                                }
+                            ],
                         },
                         {
-                            "id": f"diagram_{i}",
-                            "type": "draw_shape",
-                            "target_id": f"step_{i}_circle",
-                            "parameters": {
-                                "shape": "circle",
-                                "x": 300,
-                                "y": 200,
-                                "width": 60,
-                                "height": 60,
-                            },
-                            "duration": 1,
-                            "easing": "linear",
-                            "order": 1,
+                            "id": f"event_{i}_2",
+                            "visual_actions": [
+                                {
+                                    "id": f"diagram_{i}",
+                                    "type": "draw_shape",
+                                    "target_id": f"step_{i}_circle",
+                                    "parameters": {
+                                        "shape": "circle",
+                                        "x": 300,
+                                        "y": 200,
+                                        "width": 60,
+                                        "height": 60,
+                                    },
+                                    "duration": 1,
+                                    "easing": "linear",
+                                    "order": 0,
+                                }
+                            ],
                         },
                     ],
                 }
