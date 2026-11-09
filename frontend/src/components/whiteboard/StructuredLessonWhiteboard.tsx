@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Lesson, TeachingEvent } from "../../types/lesson";
 import type { Scene, SceneObject, VisualAction } from "../../types/visualAction";
 
 import { SceneManager } from "./engine/SceneManager";
 import { ActionExecutor } from "./engine/ActionExecutor";
+import {
+  buildLessonTimeline,
+  locateTimelinePosition,
+  reconstructTimelineScene,
+} from "./engine/LessonTimeline";
 import TegakiTextRenderer from "./engine/TegakiTextRenderer";
 import WhiteboardCanvas from "./WhiteboardCanvas";
 
@@ -21,28 +26,20 @@ interface HandwrittenTextLineProps {
 }
 
 function HandwrittenTextLine({
-  id,
-  text,
-  fontSize = 32,
-  minHeight = 76,
-  progress = 1,
+  id, text, fontSize = 32, minHeight = 76, progress = 1,
 }: HandwrittenTextLineProps) {
   if (!text.trim()) return null;
-
   const estimatedLines = text.split("\n").reduce(
-    (count, line) => count + Math.max(1, Math.ceil(line.length / 90)),
-    0
+    (count, line) => count + Math.max(1, Math.ceil(line.length / 90)), 0
   );
   const height = Math.max(minHeight, estimatedLines * fontSize * 1.6 + 20);
   const object: SceneObject = {
-    id,
-    type: "text",
+    id, type: "text",
     properties: {
       text, x: 24, y: fontSize + 8, width: 1900,
       height: height - 12, font_size: fontSize, color: "#1e293b",
     },
   };
-
   return (
     <svg viewBox={`0 0 2000 ${height}`} width="100%" height={height}
       role="img" aria-label={text} style={{ display: "block", overflow: "hidden" }}>
@@ -60,9 +57,13 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
   const managerRef = useRef<SceneManager | null>(null);
   const executorRef = useRef<ActionExecutor | null>(null);
   const runIdRef = useRef(0);
+  const cursorRef = useRef(0);
 
   if (!managerRef.current) managerRef.current = new SceneManager(lesson.initial_scene);
   if (!executorRef.current) executorRef.current = new ActionExecutor(managerRef.current);
+
+  const timeline = useMemo(() => buildLessonTimeline(lesson), [lesson]);
+  const totalDuration = timeline.length ? timeline[timeline.length - 1].end : 0;
 
   const [scene, setScene] = useState<Scene>(() => managerRef.current!.getScene());
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -71,8 +72,28 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [currentTime, setCurrentTime] = useState(0);
   const [activeDrawing, setActiveDrawing] = useState<{ objectId: string; progress: number } | null>(null);
   const activeStep = lesson.steps[activeStepIndex];
+
+  function findEvent(stepIndex: number, eventId: string): TeachingEvent | null {
+    return lesson.steps[stepIndex]?.teaching_events?.find((event) => event.id === eventId) ?? null;
+  }
+
+  function updateEventProgress(entryIndex: number, progress: number) {
+    const entry = timeline[entryIndex];
+    if (!entry) return;
+    const eventEntries = timeline.filter(
+      (candidate) => candidate.stepIndex === entry.stepIndex && candidate.eventId === entry.eventId
+    );
+    const eventStart = eventEntries[0]?.start ?? entry.start;
+    const eventEnd = eventEntries[eventEntries.length - 1]?.end ?? entry.end;
+    const eventDuration = eventEnd - eventStart;
+    const elapsed = entry.start - eventStart + entry.duration * progress;
+    setExplanationProgress(eventDuration > 0 ? Math.max(0, Math.min(1, elapsed / eventDuration)) : 1);
+    setActiveEvent(findEvent(entry.stepIndex, entry.eventId));
+    setActiveStepIndex(entry.stepIndex);
+  }
 
   useEffect(() => {
     const manager = managerRef.current!;
@@ -80,72 +101,70 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
     runIdRef.current++;
     executor.cancel();
     manager.loadScene(lesson.initial_scene);
+    cursorRef.current = 0;
     setScene(manager.getScene());
     setActiveStepIndex(0);
     setActiveEvent(null);
     setExplanationProgress(0);
     setIsPlaying(false);
     setIsPaused(false);
+    setCurrentTime(0);
     setActiveDrawing(null);
     return () => { runIdRef.current++; executor.cancel(); };
   }, [lesson.id]);
 
-  async function playLesson() {
-    if (isPlaying || isPaused) return;
+  async function playFromCursor() {
+    if (isPlaying || isPaused || timeline.length === 0) return;
     const runId = ++runIdRef.current;
     const executor = executorRef.current!;
     const manager = managerRef.current!;
+    const position = locateTimelinePosition(timeline, cursorRef.current);
+    if (!position.entry) return;
+
     executor.cancel();
-    manager.loadScene(lesson.initial_scene);
-    setScene(manager.getScene());
-    setActiveStepIndex(0);
-    setActiveEvent(null);
-    setExplanationProgress(0);
-    setActiveDrawing(null);
     setIsPlaying(true);
+    let first = true;
 
     try {
-      for (let stepIndex = 0; stepIndex < lesson.steps.length; stepIndex++) {
+      for (let index = position.entryIndex; index < timeline.length; index++) {
         if (runId !== runIdRef.current) return;
-        const step = lesson.steps[stepIndex];
-        setActiveStepIndex(stepIndex);
-        const events = step.teaching_events ?? [];
-        for (const event of events) {
-          if (runId !== runIdRef.current) return;
-          const actions = [...event.visual_actions].sort((a, b) => a.order - b.order);
-          const totalDuration = actions.reduce((sum, action) => sum + action.duration, 0);
-          const preceding = new Map<string, number>();
-          let elapsed = 0;
-          for (const action of actions) {
-            preceding.set(action.id, elapsed);
-            elapsed += action.duration;
-          }
-          setActiveEvent(event);
-          setExplanationProgress(0);
-          await executor.executeSequence(actions, playbackSpeed, {
-            onActionProgress: (action: VisualAction, _index, progress) => {
-              if (runId !== runIdRef.current) return;
-              setScene(manager.getScene());
-              const eventProgress = totalDuration > 0
-                ? ((preceding.get(action.id) ?? 0) + action.duration * progress) / totalDuration
-                : progress;
-              setExplanationProgress(Math.max(0, Math.min(1, eventProgress)));
-              if (CREATION_ACTIONS.has(action.type) && action.target_id) {
-                setActiveDrawing({ objectId: action.target_id, progress });
-              }
-            },
-            onActionComplete: (action: VisualAction) => {
-              if (runId !== runIdRef.current) return;
-              setScene(manager.getScene());
-              if (CREATION_ACTIONS.has(action.type) && action.target_id) setActiveDrawing(null);
-            },
-            onError: (error: Error) => console.error("Whiteboard event action failed:", error),
-          });
-          if (runId !== runIdRef.current) return;
-          setExplanationProgress(1);
-          setScene(manager.getScene());
-          setActiveDrawing(null);
-        }
+        const entry = timeline[index];
+        const startProgress = first ? position.progress : 0;
+        const alreadyApplied = first && startProgress > 0;
+        first = false;
+
+        setActiveStepIndex(entry.stepIndex);
+        setActiveEvent(findEvent(entry.stepIndex, entry.eventId));
+        updateEventProgress(index, startProgress);
+
+        await executor.executeSequence([entry.action], playbackSpeed, {
+          initialProgress: startProgress,
+          firstActionAlreadyApplied: alreadyApplied,
+          onActionProgress: (action: VisualAction, _actionIndex, progress) => {
+            if (runId !== runIdRef.current) return;
+            setScene(manager.getScene());
+            updateEventProgress(index, progress);
+            const elapsed = entry.start + entry.duration * progress;
+            cursorRef.current = elapsed;
+            setCurrentTime(elapsed);
+            if (CREATION_ACTIONS.has(action.type) && action.target_id) {
+              setActiveDrawing({ objectId: action.target_id, progress });
+            }
+          },
+          onActionComplete: (action: VisualAction) => {
+            if (runId !== runIdRef.current) return;
+            setScene(manager.getScene());
+            cursorRef.current = entry.end;
+            setCurrentTime(entry.end);
+            updateEventProgress(index, 1);
+            if (CREATION_ACTIONS.has(action.type) && action.target_id) setActiveDrawing(null);
+          },
+          onError: (error: Error) => console.error("Whiteboard timeline action failed:", error),
+        });
+
+        if (runId !== runIdRef.current) return;
+        cursorRef.current = entry.end;
+        setCurrentTime(entry.end);
       }
     } catch (error) {
       console.error("Lesson playback failed:", error);
@@ -157,6 +176,12 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
         setIsPaused(false);
       }
     }
+  }
+
+  function playLesson() {
+    if (isPlaying || isPaused) return;
+    if (cursorRef.current >= totalDuration) restartLesson();
+    void playFromCursor();
   }
 
   function pauseLesson() {
@@ -171,14 +196,50 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
     setIsPaused(false);
   }
 
+  function seekLesson(value: number) {
+    runIdRef.current++;
+    executorRef.current!.cancel();
+    const manager = managerRef.current!;
+    const reconstructed = reconstructTimelineScene(manager, lesson.initial_scene, timeline, value);
+    cursorRef.current = reconstructed.position.time;
+    setCurrentTime(reconstructed.position.time);
+    setScene(manager.getScene());
+    setIsPlaying(false);
+    setIsPaused(false);
+
+    const entry = reconstructed.position.entry;
+    if (!entry) {
+      setActiveStepIndex(0);
+      setActiveEvent(null);
+      setExplanationProgress(0);
+      setActiveDrawing(null);
+      return;
+    }
+
+    setActiveStepIndex(entry.stepIndex);
+    setActiveEvent(findEvent(entry.stepIndex, entry.eventId));
+    updateEventProgress(reconstructed.position.entryIndex, reconstructed.position.progress);
+    if (reconstructed.activeAction && CREATION_ACTIONS.has(reconstructed.activeAction.type)
+      && reconstructed.activeAction.target_id) {
+      setActiveDrawing({
+        objectId: reconstructed.activeAction.target_id,
+        progress: reconstructed.position.progress,
+      });
+    } else {
+      setActiveDrawing(null);
+    }
+  }
+
   function restartLesson() {
     runIdRef.current++;
     executorRef.current!.cancel();
     managerRef.current!.loadScene(lesson.initial_scene);
+    cursorRef.current = 0;
     setScene(managerRef.current!.getScene());
     setActiveStepIndex(0);
     setActiveEvent(null);
     setExplanationProgress(0);
+    setCurrentTime(0);
     setActiveDrawing(null);
     setIsPlaying(false);
     setIsPaused(false);
@@ -209,9 +270,15 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
         {isPlaying ? <button onClick={pauseLesson}>Pause</button>
           : isPaused ? <button onClick={resumeLesson}>Resume</button>
           : <button onClick={playLesson}>Play lesson</button>}
-        <button onClick={restartLesson} disabled={!isPlaying && !isPaused && activeStepIndex === 0 && !activeEvent}>
-          Restart
-        </button>
+        <button onClick={restartLesson} disabled={currentTime === 0 && !isPlaying && !isPaused}>Restart</button>
+        <label>
+          <span>Seek</span>
+          <input type="range" min={0} max={totalDuration || 1} step={0.01}
+            value={Math.min(currentTime, totalDuration)}
+            onChange={(event) => seekLesson(Number(event.target.value))}
+            aria-label="Seek lesson timeline" disabled={totalDuration <= 0} />
+        </label>
+        <span>{currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s</span>
         <select value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}
           aria-label="Playback speed" disabled={isPlaying || isPaused}>
           <option value={0.5}>0.5x</option><option value={1}>1x</option>
