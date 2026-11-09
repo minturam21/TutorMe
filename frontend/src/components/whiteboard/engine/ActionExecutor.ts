@@ -92,10 +92,10 @@ export class ActionExecutor {
       throw new Error("Playback speed must be greater than zero.");
     }
 
-    // Stop any previous execution before starting another.
-    this.cancel();
-
+    // Start a new sequence without clearing a lesson-wide pause request.
+    // A caller starting a fresh lesson must call cancel() explicitly first.
     this.cancelled = false;
+    this.executionId++;
 
     const currentExecutionId = this.executionId;
 
