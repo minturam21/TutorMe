@@ -258,15 +258,7 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
       </div>
       <div className="structured-whiteboard-canvas">
         <WhiteboardCanvas scene={scene} activeDrawing={activeDrawing} />
-      </div>
-      {activeEvent && (
-        <section className="structured-whiteboard-content" aria-live="polite">
-          <HandwrittenTextLine id={`event-${activeEvent.id}-explanation`}
-            text={activeEvent.explanation} fontSize={28} minHeight={120}
-            progress={explanationProgress} />
-        </section>
-      )}
-      <div className="structured-whiteboard-controls">
+      </div>      <div className="structured-whiteboard-controls">
         {isPlaying ? <button onClick={pauseLesson}>Pause</button>
           : isPaused ? <button onClick={resumeLesson}>Resume</button>
           : <button onClick={playLesson}>Play lesson</button>}
@@ -285,6 +277,14 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
           <option value={1.5}>1.5x</option><option value={2}>2x</option>
         </select>
       </div>
+      {activeEvent && (
+        <section className="structured-whiteboard-content" aria-live="polite">
+          <HandwrittenTextLine id={`event-${activeEvent.id}-explanation`}
+            text={activeEvent.explanation} fontSize={28} minHeight={120}
+            progress={explanationProgress} />
+        </section>
+      )}
+
     </div>
   );
 }
