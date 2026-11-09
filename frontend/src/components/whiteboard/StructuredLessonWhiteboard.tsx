@@ -48,6 +48,45 @@ function HandwrittenTextLine({
   );
 }
 
+interface CanvasViewBox { x: number; y: number; width: number; height: number; }
+
+function calculateLessonViewBox(lesson: Lesson): CanvasViewBox {
+  const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  const include = (x: number, y: number, width: number, height: number) => {
+    if (![x, y, width, height].every(Number.isFinite)) return;
+    bounds.minX = Math.min(bounds.minX, x);
+    bounds.minY = Math.min(bounds.minY, y);
+    bounds.maxX = Math.max(bounds.maxX, x + Math.max(0, width));
+    bounds.maxY = Math.max(bounds.maxY, y + Math.max(0, height));
+  };
+  const scenes = [lesson.initial_scene, ...lesson.steps.flatMap(step => [
+    step.expected_scene,
+    ...(step.teaching_events ?? []).map(event => event.expected_scene),
+  ])];
+  for (const scene of scenes) {
+    for (const object of scene.objects ?? []) {
+      const p = object.properties;
+      const x = typeof p.x === "number" ? p.x : 0;
+      const y = typeof p.y === "number" ? p.y : 0;
+      const width = typeof p.width === "number" ? p.width : 900;
+      const height = typeof p.height === "number" ? p.height : 120;
+      if (object.type === "line" || object.type === "arrow") {
+        const x1 = typeof p.start_x === "number" ? p.start_x : x;
+        const y1 = typeof p.start_y === "number" ? p.start_y : y;
+        const x2 = typeof p.end_x === "number" ? p.end_x : x;
+        const y2 = typeof p.end_y === "number" ? p.end_y : y;
+        include(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+      } else include(x, y, width, height);
+    }
+  }
+  if (!Number.isFinite(bounds.minX)) return { x: 0, y: 0, width: 2000, height: 1400 };
+  const contentWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const contentHeight = Math.max(1, bounds.maxY - bounds.minY);
+  const padding = Math.max(48, Math.max(contentWidth, contentHeight) * 0.08);
+  return { x: bounds.minX - padding, y: bounds.minY - padding,
+    width: contentWidth + padding * 2, height: contentHeight + padding * 2 };
+}
+
 const CREATION_ACTIONS = new Set([
   "create_object", "draw_shape", "draw_line", "draw_arrow", "draw_path",
   "write_text", "write_equation",
@@ -64,6 +103,7 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
 
   const timeline = useMemo(() => buildLessonTimeline(lesson), [lesson]);
   const totalDuration = timeline.length ? timeline[timeline.length - 1].end : 0;
+  const viewBox = useMemo(() => calculateLessonViewBox(lesson), [lesson]);
 
   const [scene, setScene] = useState<Scene>(() => managerRef.current!.getScene());
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -257,7 +297,7 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
         </div>
       </div>
       <div className="structured-whiteboard-canvas">
-        <WhiteboardCanvas scene={scene} activeDrawing={activeDrawing} />
+        <WhiteboardCanvas scene={scene} activeDrawing={activeDrawing} viewBox={viewBox} />
       </div>      <div className="structured-whiteboard-controls">
         {isPlaying ? <button onClick={pauseLesson}>Pause</button>
           : isPaused ? <button onClick={resumeLesson}>Resume</button>
