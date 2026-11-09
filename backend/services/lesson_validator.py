@@ -1,3 +1,4 @@
+from copy import deepcopy
 
 from math import isfinite
 from typing import Any
@@ -230,6 +231,7 @@ def validate_lesson(data: dict) -> Lesson:
 
     for step in lesson.steps:
 
+        state_before_step = deepcopy(simulated_state)
         orders = [action.order for action in step.visual_actions]
 
         if len(orders) != len(set(orders)):
@@ -308,5 +310,30 @@ def validate_lesson(data: dict) -> Lesson:
             simulated_state,
             step.id,
         )
+
+        if step.teaching_events:
+            event_state = state_before_step
+            event_action_ids = []
+            for event in step.teaching_events:
+                event_orders = [action.order for action in event.visual_actions]
+                if event_orders != sorted(event_orders) or len(event_orders) != len(set(event_orders)):
+                    raise LessonValidationError(
+                        f"Event actions are not uniquely ordered in event: {event.id}"
+                    )
+
+                for action in event.visual_actions:
+                    event_action_ids.append(action.id)
+                    apply_action_to_state(event_state, action)
+
+                validate_expected_scene(
+                    event.expected_scene,
+                    event_state,
+                    f"{step.id}/{event.id}",
+                )
+
+            if event_action_ids != [action.id for action in step.visual_actions]:
+                raise LessonValidationError(
+                    f"Event actions do not match flattened actions in step: {step.id}"
+                )
 
     return lesson
