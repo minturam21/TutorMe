@@ -77,6 +77,15 @@ class LessonPlannerTests(unittest.TestCase):
         LessonPlanner._validate_plan(plan)
         self.assertEqual(plan["practice_questions"], [])
 
+    def test_step_count_error_reports_actual_allowed_range_and_count(self):
+        plan = self.create_valid_plan(2)
+
+        with self.assertRaisesRegex(
+            LessonPlanningError,
+            "between 3 and 6 steps; received 2",
+        ):
+            LessonPlanner._validate_plan(plan)
+
     def test_reject_fewer_than_three_steps(self):
         plan = self.create_valid_plan(2)
 
