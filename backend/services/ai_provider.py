@@ -37,6 +37,19 @@ class AIProvider:
                 ) from error
             self.client = genai.Client(api_key=gemini_key)
             self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+            self.fallback_client = None
+            self.fallback_model = None
+            if groq_key:
+                try:
+                    from groq import Groq
+                    self.fallback_client = Groq(api_key=groq_key)
+                    self.fallback_model = os.getenv(
+                        "GROQ_MODEL", "openai/gpt-oss-120b"
+                    )
+                except ImportError:
+                    # Gemini remains usable even if the optional fallback SDK
+                    # has not been installed.
+                    pass
         elif requested == "groq":
             if not groq_key:
                 raise RuntimeError("GROQ_API_KEY is missing from backend/.env.")
@@ -94,12 +107,24 @@ class AIProvider:
                 config = self._gemini_config(temperature, max_tokens, response_format)
                 if system_instruction:
                     config["system_instruction"] = system_instruction
-                response = self.client.models.generate_content(
-                    model=self.model,
-                    contents=contents,
-                    config=config,
-                )
-                return response.text or ""
+                try:
+                    response = self.client.models.generate_content(
+                        model=self.model,
+                        contents=contents,
+                        config=config,
+                    )
+                    return response.text or ""
+                except Exception:
+                    if self.fallback_client is None:
+                        raise
+                    fallback_response = self.fallback_client.chat.completions.create(
+                        model=self.fallback_model,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        response_format=response_format,
+                    )
+                    return fallback_response.choices[0].message.content or ""
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -124,14 +149,32 @@ class AIProvider:
                 config = {"temperature": temperature}
                 if system_instruction:
                     config["system_instruction"] = system_instruction
-                stream = self.client.models.generate_content_stream(
-                    model=self.model,
-                    contents=contents,
-                    config=config,
-                )
-                for chunk in stream:
-                    if chunk.text:
-                        yield chunk.text
+                try:
+                    stream = self.client.models.generate_content_stream(
+                        model=self.model,
+                        contents=contents,
+                        config=config,
+                    )
+                    yielded_content = False
+                    for chunk in stream:
+                        if chunk.text:
+                            yielded_content = True
+                            yield chunk.text
+                except Exception:
+                    # A stream can only fail over safely before any text has
+                    # reached the caller; otherwise a retry would duplicate it.
+                    if self.fallback_client is None or yielded_content:
+                        raise
+                    fallback_stream = self.fallback_client.chat.completions.create(
+                        model=self.fallback_model,
+                        messages=messages,
+                        temperature=temperature,
+                        stream=True,
+                    )
+                    for chunk in fallback_stream:
+                        content = chunk.choices[0].delta.content
+                        if content:
+                            yield content
             else:
                 stream = self.client.chat.completions.create(
                     model=self.model,
