@@ -67,7 +67,9 @@ class LessonPlannerTests(unittest.TestCase):
     def create_planner(self, responses):
         provider = Mock()
         provider.generate_response.side_effect = [
-            json.dumps(response) if isinstance(response, dict) else response
+            response if isinstance(response, Exception)
+            else json.dumps(response) if isinstance(response, dict)
+            else response
             for response in responses
         ]
         return LessonPlanner(ai_provider=provider), provider
@@ -144,6 +146,36 @@ class LessonPlannerTests(unittest.TestCase):
         with self.assertRaisesRegex(
             LessonPlanningError,
             "failed after 2 attempts.*received 8",
+        ):
+            planner.create_plan("How does gravity work?")
+
+        self.assertEqual(provider.generate_response.call_count, 2)
+
+    def test_retries_groq_json_validation_failure_and_recovers(self):
+        valid_plan = self.create_valid_plan(4)
+        provider_error = RuntimeError(
+            "Groq API request failed: Error code: 400 "
+            "json_validate_failed: Failed to generate JSON"
+        )
+        planner, provider = self.create_planner([provider_error, valid_plan])
+
+        result = planner.create_plan("How does gravity work?")
+
+        self.assertEqual(len(result["steps"]), 4)
+        self.assertEqual(provider.generate_response.call_count, 2)
+        retry_messages = provider.generate_response.call_args_list[1].kwargs["messages"]
+        self.assertIn("not valid JSON", retry_messages[1]["content"])
+
+    def test_fails_after_retry_when_groq_json_validation_keeps_failing(self):
+        provider_error = RuntimeError(
+            "Groq API request failed: Error code: 400 "
+            "json_validate_failed: Failed to generate JSON"
+        )
+        planner, provider = self.create_planner([provider_error, provider_error])
+
+        with self.assertRaisesRegex(
+            LessonPlanningError,
+            "failed after 2 attempts.*not valid JSON",
         ):
             planner.create_plan("How does gravity work?")
 

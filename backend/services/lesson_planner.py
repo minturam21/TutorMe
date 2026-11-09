@@ -149,6 +149,20 @@ Return the complete corrected JSON only.
                 last_error = error
 
             except Exception as error:
+                # Groq may reject a malformed model completion before returning
+                # text when JSON mode is enabled. Retry only this output-format
+                # failure; unrelated provider errors must fail immediately.
+                provider_error = str(error)
+                if (
+                    "json_validate_failed" in provider_error
+                    or "Failed to generate JSON" in provider_error
+                ):
+                    last_error = LessonPlanningError(
+                        "Groq rejected the previous completion because it was "
+                        "not valid JSON. Regenerate the complete lesson plan "
+                        "as strict JSON matching the required structure."
+                    )
+                    continue
                 raise LessonPlanningError(
                     f"Lesson planning failed: {error}"
                 ) from error
