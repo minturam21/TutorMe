@@ -17,7 +17,6 @@ export interface TeachingEvent {
   id: string;
   explanation: string;
   visual_actions: VisualAction[];
-  teaching_events: TeachingEvent[];
   expected_scene: Scene;
   duration: number;
 }
@@ -29,6 +28,7 @@ export interface TeachingStep {
   explanation: string;
   equations: string[];
   visual_actions: VisualAction[];
+  teaching_events: TeachingEvent[];
   expected_scene: Scene;
   duration: number;
 }
