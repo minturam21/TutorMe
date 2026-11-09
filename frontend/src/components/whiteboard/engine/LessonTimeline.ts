@@ -90,3 +90,40 @@ export function locateTimelinePosition(
 
   return { entryIndex, entry, time, progress, totalDuration };
 }
+
+export interface ReconstructedTimelineScene {
+  position: TimelinePosition;
+  activeAction: VisualAction | null;
+}
+
+/**
+ * Replays completed actions to rebuild the scene at a seek position.
+ * The selected action is applied only after it has begun; its returned
+ * progress is used by the renderer to reveal creation actions partially.
+ */
+export function reconstructTimelineScene(
+  manager: import("./SceneManager").SceneManager,
+  initialScene: import("../../../types/visualAction").Scene,
+  entries: TimelineEntry[],
+  requestedTime: number
+): ReconstructedTimelineScene {
+  const position = locateTimelinePosition(entries, requestedTime);
+  manager.loadScene(initialScene);
+
+  if (!position.entry) {
+    return { position, activeAction: null };
+  }
+
+  for (let index = 0; index < position.entryIndex; index++) {
+    manager.applyAction(entries[index].action);
+  }
+
+  if (position.progress > 0) {
+    manager.applyAction(position.entry.action);
+  }
+
+  return {
+    position,
+    activeAction: position.progress > 0 ? position.entry.action : null,
+  };
+}
