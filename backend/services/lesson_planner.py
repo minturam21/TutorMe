@@ -303,9 +303,9 @@ Create a complete teaching plan for this question.
                 "Practice questions must be a list."
             )
 
-        if not 3 <= len(questions) <= 5:
+        if not 0 <= len(questions) <= 5:
             raise LessonPlanningError(
-                "The lesson must contain between 3 and 5 practice questions."
+                "The lesson may contain at most 5 practice questions."
             )
 
         for item in questions:
