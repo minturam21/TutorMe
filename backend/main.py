@@ -397,8 +397,8 @@ Before returning JSON, check:
                 {
                     "role": "user",
                     "content": (
-                        f"Subject: {request.subject or 'Automatically identify'}\\n"
-                        f"Level: {request.level}\\n"
+                        f"Subject: {request.subject or 'Automatically identify'}\n"
+                        f"Level: {request.level}\n"
                         f"Question: {request.message}"
                     ),
                 },
@@ -435,6 +435,9 @@ Before returning JSON, check:
             raise ValueError("Lesson must contain at least one step.")
 
         return lesson
+
+    except HTTPException:
+        raise
 
     except json.JSONDecodeError as error:
         print(f"Lesson JSON parsing error: {error}")
