@@ -56,8 +56,8 @@ WHITEBOARD COORDINATE SYSTEM:
 - Never use coordinates outside these boundaries.
 
 GENERAL RULES:
-1. Generate actions for every teaching step.
-2. Preserve all original teaching step IDs.
+1. Generate actions separately for every teaching event.
+2. Preserve all original teaching step and event IDs.
 3. Use only the 13 supported action types.
 4. Every action must have a unique ID across the entire lesson.
 5. Every newly created object needs a target_id.
@@ -72,19 +72,17 @@ GENERAL RULES:
 14. Use short, meaningful action sequences.
 15. Avoid decorative objects.
 16. Never generate actions for student practice answers.
-17. Every teaching step must contain at least one actual visual action.
-18. A wait action may accompany visual actions but cannot be the only action.
-19. Every teaching step MUST contain at least one write_text action.
-20. The write_text action must contain a concise, meaningful teaching note
-    derived from that step's explanation or key concepts.
-21. Never copy the entire explanation paragraph onto the whiteboard.
-22. Use short handwritten notes, definitions, or concept statements.
-23. If a teaching step contains equations, generate a write_equation
-    action for every equation in that step.
-24. Preserve the mathematical meaning of every original equation.
-25. Position notes and equations deliberately so they do not overlap
-    diagrams, other text, or other equations.
-26. Do not use draw_shape labels as a replacement for write_text actions.
+17. Generate a separate visual_actions list for EACH teaching event.
+18. Each event's actions must represent only the concept explained in that event.
+19. Never reveal content belonging to a later event early.
+20. Every event must contain at least one actual visual action; wait cannot be its only action.
+21. Across each step, include meaningful handwritten teaching text.
+22. Put a write_text action in the event introducing the corresponding term or definition.
+23. Never copy an entire step explanation paragraph onto the board at once.
+24. Put each equation action in the event that explains that equation.
+25. Preserve the mathematical meaning of every original equation.
+26. Position content deliberately to avoid overlap.
+27. Do not use draw_shape labels as a replacement for write_text actions.
 
 SUPPORTED ACTION TYPES AND PARAMETERS:
 
@@ -203,21 +201,20 @@ Required output format:
     "steps": [
         {
             "id": "step_1",
-            "visual_actions": [
+            "teaching_events": [
                 {
-                    "id": "action_1",
-                    "type": "draw_shape",
-                    "target_id": "step_1_block",
-                    "parameters": {
-                        "shape": "rectangle",
-                        "x": 100,
-                        "y": 100,
-                        "width": 120,
-                        "height": 80
-                    },
-                    "duration": 1.0,
-                    "easing": "ease_in_out",
-                    "order": 0
+                    "id": "event_1",
+                    "visual_actions": [
+                        {
+                            "id": "action_1",
+                            "type": "write_text",
+                            "target_id": "step_1_force_note",
+                            "parameters": {"text": "Force", "x": 100, "y": 100},
+                            "duration": 1.0,
+                            "easing": "ease_in_out",
+                            "order": 0
+                        }
+                    ]
                 }
             ]
         }
@@ -235,8 +232,9 @@ TEACHING PLAN:
 
 {json.dumps(plan, ensure_ascii=False, indent=2)}
 
-Generate actions for all teaching steps.
-Preserve every original step ID.
+Generate actions for every event in every teaching step.
+Preserve every original step ID and teaching event ID.
+Return events in the exact original order.
 Use the 2000 x 1400 coordinate system.
 Follow every action parameter specification.
 
@@ -245,9 +243,9 @@ The steps array must contain JSON objects only.
 Never return strings, numbers, or nested arrays as teaching steps.
 Each object must contain:
 - id
-- visual_actions
+- teaching_events, each containing id and visual_actions
 
-The id must exactly match its corresponding original teaching step ID.
+Step IDs and event IDs must exactly match the original plan.
 """
 
         try:
@@ -305,99 +303,60 @@ The id must exactly match its corresponding original teaching step ID.
         all_action_ids = set()
 
         try:
-            for original_step, generated_step in zip(
-                updated_plan["steps"],
-                generated_steps,
-            ):
-                actions = generated_step.get("visual_actions")
+            for original_step, generated_step in zip(updated_plan["steps"], generated_steps):
+                original_events = original_step.get("teaching_events")
+                generated_events = generated_step.get("teaching_events")
+                if not isinstance(original_events, list) or not original_events:
+                    raise ActionGenerationError(f"Step '{original_step['id']}' has no teaching events.")
+                if not isinstance(generated_events, list):
+                    raise ActionGenerationError(f"Invalid teaching_events in step '{original_step['id']}'.")
 
-                if not isinstance(actions, list):
-                    raise ActionGenerationError(
-                        f"Invalid visual_actions in step: "
-                        f"{original_step['id']}"
-                    )
+                expected_ids = [event["id"] for event in original_events]
+                actual_ids = [event.get("id") if isinstance(event, dict) else None for event in generated_events]
+                if actual_ids != expected_ids:
+                    raise ActionGenerationError(f"Generated event IDs do not match the plan in step '{original_step['id']}'.")
 
-                if not actions:
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' contains no visual actions."
-                    )
+                flattened_actions = []
+                has_handwritten_note = False
+                equation_actions = []
 
-                validated_actions = []
+                for original_event, generated_event in zip(original_events, generated_events):
+                    actions = generated_event.get("visual_actions")
+                    if not isinstance(actions, list) or not actions:
+                        raise ActionGenerationError(f"Event '{original_event['id']}' contains no visual actions.")
 
-                for action_data in actions:
-                    action = VisualAction.model_validate(action_data)
+                    validated_actions = []
+                    for action_data in actions:
+                        action = VisualAction.model_validate(action_data)
+                        if action.id in all_action_ids:
+                            raise ActionGenerationError(f"Duplicate action ID: {action.id}")
+                        all_action_ids.add(action.id)
+                        validated_actions.append(action.model_dump())
 
-                    if action.id in all_action_ids:
-                        raise ActionGenerationError(
-                            f"Duplicate action ID: {action.id}"
-                        )
+                    if not any(action["type"] != "wait" for action in validated_actions):
+                        raise ActionGenerationError(f"Event '{original_event['id']}' contains no actual visual action.")
 
-                    all_action_ids.add(action.id)
+                    if any(action["type"] == "write_text" and action["parameters"].get("text", "").strip() for action in validated_actions):
+                        has_handwritten_note = True
 
-                    validated_actions.append(
-                        action.model_dump()
-                    )
+                    equation_actions.extend(action for action in validated_actions if action["type"] == "write_equation")
+                    original_event["visual_actions"] = validated_actions
+                    flattened_actions.extend(validated_actions)
 
-                if not any(
-                    action["type"] != "wait"
-                    for action in validated_actions
-                ):
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' contains no actual visual action."
-                    )
+                if not has_handwritten_note:
+                    raise ActionGenerationError(f"Step '{original_step['id']}' has no handwritten teaching note.")
 
-                # Every teaching step needs handwritten teaching content.
-                handwritten_notes = [
-                    action
-                    for action in validated_actions
-                    if action["type"] == "write_text"
-                ]
-
-                if not handwritten_notes:
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' has no handwritten teaching note."
-                    )
-
-                if not any(
-                    action["parameters"].get("text", "").strip()
-                    for action in handwritten_notes
-                ):
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' has an empty handwritten note."
-                    )
-
-                # Every original equation must have an equation-writing action.
                 original_equations = original_step.get("equations", [])
-
                 if not isinstance(original_equations, list):
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' has invalid equations."
-                    )
-
-                equation_actions = [
-                    action
-                    for action in validated_actions
-                    if action["type"] == "write_equation"
-                ]
-
+                    raise ActionGenerationError(f"Step '{original_step['id']}' has invalid equations.")
                 if len(equation_actions) < len(original_equations):
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' is missing handwritten equation actions."
-                    )
+                    raise ActionGenerationError(f"Step '{original_step['id']}' is missing handwritten equation actions.")
+                if any(not action["parameters"].get("equation", "").strip() for action in equation_actions):
+                    raise ActionGenerationError(f"Step '{original_step['id']}' contains an empty handwritten equation.")
 
-                if any(
-                    not action["parameters"].get("equation", "").strip()
-                    for action in equation_actions
-                ):
-                    raise ActionGenerationError(
-                        f"Step '{original_step['id']}' contains an empty handwritten equation."
-                    )
-
-                original_step["visual_actions"] = validated_actions
+                original_step["visual_actions"] = flattened_actions
 
         except ValidationError as error:
-            raise ActionGenerationError(
-                f"AI generated an invalid visual action: {error}"
-            ) from error
+            raise ActionGenerationError(f"AI generated an invalid visual action: {error}") from error
 
         return updated_plan
