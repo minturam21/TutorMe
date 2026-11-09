@@ -6,6 +6,7 @@ from services.action_generator import (
     ActionGenerator,
     ActionGenerationError,
 )
+from services.action_response_schema import PARAMETER_KEYS
 
 
 class FakeAIProvider:
