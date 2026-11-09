@@ -123,8 +123,9 @@ Your previous response was rejected by the application validator:
 {last_error}
 
 Regenerate the complete lesson plan. Correct the validation error.
-The steps array must contain at least 3 and at most 6 teaching steps.
-Do not solve this by omitting required teaching content or returning a partial plan.
+The previous response contained an invalid number of teaching steps; this is not acceptable.
+Return exactly 3 to 5 distinct, sequential teaching steps. For a narrow topic, split the explanation into foundation, core principle, and worked application or consequence. Each step must have its own teaching goal and 2 to 4 teaching events. Do not put the entire lesson into one step.
+Do not omit required teaching content or return a partial plan.
 Return the complete corrected JSON only.
 """
 
