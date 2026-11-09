@@ -33,6 +33,20 @@ class LessonPipelineTests(unittest.TestCase):
                     "equations": [],
                     "visual_goal": "Introduce the concept",
                     "visual_requirements": ["Show a diagram"],
+                    "teaching_events": [
+                        {
+                            "id": f"event_{i}_1",
+                            "explanation": "Introduce the idea of position.",
+                            "visual_goal": "Write the word position.",
+                            "visual_requirements": ["Handwrite the word Position"],
+                        },
+                        {
+                            "id": f"event_{i}_2",
+                            "explanation": "Explain that position changes over time.",
+                            "visual_goal": "Show a moving object.",
+                            "visual_requirements": ["Draw an object and its changed position"],
+                        },
+                    ],
                 }
                 for i in range(1, 4)
             ],
