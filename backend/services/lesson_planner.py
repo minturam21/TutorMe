@@ -95,7 +95,7 @@ Return valid JSON only, using this structure:
 }
 
 Each teaching step must contain 2 to 4 ordered teaching_events. Each event must explain one small idea only; do not put the entire step explanation into one event. Events must follow the exact teaching order. Associate each event with only the text, equation part, or visual change that belongs to that explanation segment. Do not reveal later concepts in earlier events. The event explanations, in order, must cover the full teaching step without duplicating it.
-Return between 3 and 6 teaching steps. This limit is mandatory: never return 7 or more steps.
+Return between 3 and 6 teaching steps. This limit is mandatory: never return fewer than 3 or more than 6 steps. For a narrow question, still teach it in at least 3 distinct stages: (1) introduce the required idea or prerequisite, (2) explain the central principle with its visual demonstration, and (3) apply it in a worked example or explain its consequence. Do not combine these stages into one step.
 Return between 3 and 5 practice questions.
 Use an empty array when equations are not relevant.
 Do not include Markdown or text outside the JSON.
@@ -135,7 +135,7 @@ Return the complete corrected JSON only.
                         {"role": "user", "content": user_prompt},
                     ],
                     temperature=0.3,
-                    max_tokens=4500,
+                    max_tokens=8000,
                     response_format={"type": "json_object"},
                 )
                 plan = json.loads(response_text)
