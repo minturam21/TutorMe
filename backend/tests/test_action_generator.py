@@ -419,17 +419,16 @@ class ActionGeneratorTests(unittest.TestCase):
 
 
     def make_single_step_response_with_height(self, height):
-        action = self.make_handwritten_note()
-        action["parameters"]["height"] = height
-        # Add a positive-height second action to keep the note meaningful.
+        circle = self.make_circle("action_circle", 1)
+        circle["parameters"]["height"] = height
         return json.dumps({
             "steps": [{
                 "id": "step_1",
                 "teaching_events": [{
                     "id": "event_1",
                     "visual_actions": [
-                        action,
-                        self.make_circle("action_circle", 1),
+                        self.make_handwritten_note(),
+                        circle,
                     ],
                 }],
             }]
