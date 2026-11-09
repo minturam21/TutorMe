@@ -8,6 +8,7 @@ export class AnimationEngine {
   private startTime = 0;
   private elapsedBeforePause = 0;
   private duration = 0;
+  private initialProgress = 0;
 
   private paused = false;
   private running = false;
@@ -18,7 +19,8 @@ export class AnimationEngine {
   animate(
     durationMs: number,
     onProgress: ProgressCallback,
-    easing: EasingType = "ease_in_out"
+    easing: EasingType = "ease_in_out",
+    initialProgress = 0
   ): Promise<void> {
     if (!Number.isFinite(durationMs) || durationMs < 0) {
       return Promise.reject(
@@ -28,7 +30,12 @@ export class AnimationEngine {
 
     this.cancel();
 
-    this.duration = durationMs;
+    if (!Number.isFinite(initialProgress) || initialProgress < 0 || initialProgress > 1) {
+      return Promise.reject(new Error("Initial progress must be between zero and one."));
+    }
+
+    this.initialProgress = initialProgress;
+    this.duration = durationMs * (1 - initialProgress);
     this.elapsedBeforePause = 0;
     this.paused = false;
     this.running = true;
@@ -41,9 +48,9 @@ export class AnimationEngine {
       this.rejectAnimation = reject;
 
       try {
-        onProgress(0);
+        onProgress(initialProgress);
 
-        if (durationMs === 0) {
+        if (this.duration === 0) {
           onProgress(1);
           this.finish();
           return;
@@ -120,8 +127,9 @@ export class AnimationEngine {
 
       const rawProgress = Math.min(1, elapsed / this.duration);
       const easedProgress = this.applyEasing(rawProgress, easing);
+      const progress = this.initialProgress + (1 - this.initialProgress) * easedProgress;
 
-      onProgress(easedProgress);
+      onProgress(progress);
 
       if (rawProgress >= 1) {
         this.finish();
@@ -212,5 +220,6 @@ export class AnimationEngine {
     this.currentEasing = "ease_in_out";
     this.elapsedBeforePause = 0;
     this.duration = 0;
+    this.initialProgress = 0;
   }
 }
