@@ -263,14 +263,14 @@ Before finishing, verify that the output step count equals {len(steps)} and that
             if last_error is not None:
                 retry_prompt += f"""
 
-Your previous JSON response was rejected:
+Your previous response was rejected:
 {last_error}
 
 Regenerate the COMPLETE visual-action JSON for the original plan.
-The plan contains exactly {len(steps)} teaching steps. Your previous response
-contained the wrong number of steps. Return exactly {len(steps)} step objects,
-preserving every original step ID and every teaching event ID in order.
-Do not omit, merge, split, or summarize any step or event. Return JSON only.
+Correct the reported problem. The plan contains exactly {len(steps)} teaching
+steps. Return exactly {len(steps)} step objects, preserving every original step
+ID and every teaching event ID in order. Do not omit, merge, split, or summarize
+any step or event. Return JSON only.
 """
             try:
                 response_text = self.ai_provider.generate_response(
@@ -286,6 +286,21 @@ Do not omit, merge, split, or summarize any step or event. Return JSON only.
             except json.JSONDecodeError as error:
                 raise ActionGenerationError("AI returned invalid JSON.") from error
             except Exception as error:
+                # Groq can reject a malformed model completion before returning
+                # text when JSON mode is enabled. Treat only this output-format
+                # failure as recoverable; authentication, rate-limit, network,
+                # and other provider errors must fail immediately.
+                provider_error = str(error)
+                if (
+                    "json_validate_failed" in provider_error
+                    or "Failed to generate JSON" in provider_error
+                ):
+                    last_error = (
+                        "Groq rejected the previous completion because it was "
+                        "not valid JSON. Regenerate the complete response as "
+                        "strict JSON matching the required structure."
+                    )
+                    continue
                 raise ActionGenerationError(
                     f"Action generation failed: {error}"
                 ) from error

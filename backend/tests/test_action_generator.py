@@ -403,6 +403,52 @@ class ActionGeneratorTests(unittest.TestCase):
 
         self.assertEqual(len(provider.calls), 2)
 
+    def test_retries_groq_json_validation_failure_and_recovers(self):
+        valid_response = json.dumps({
+            "steps": [{
+                "id": "step_1",
+                "teaching_events": [{
+                    "id": "event_1",
+                    "visual_actions": [
+                        self.make_handwritten_note(),
+                        self.make_circle(),
+                    ],
+                }],
+            }]
+        })
+        provider = SequenceAIProvider([
+            RuntimeError(
+                "Groq API request failed: Error code: 400 "
+                "json_validate_failed: Failed to generate JSON"
+            ),
+            valid_response,
+        ])
+
+        result = ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(len(result["steps"]), 1)
+        self.assertIn(
+            "not valid JSON",
+            provider.calls[1]["messages"][1]["content"],
+        )
+
+    def test_fails_after_retry_when_groq_json_validation_keeps_failing(self):
+        provider_error = RuntimeError(
+            "Groq API request failed: Error code: 400 "
+            "json_validate_failed: Failed to generate JSON"
+        )
+        provider = SequenceAIProvider([provider_error, provider_error])
+
+        with self.assertRaisesRegex(
+            ActionGenerationError,
+            "failed after 2 attempts.*not valid JSON",
+        ):
+            ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 2)
+
+
     def test_does_not_retry_action_generation_provider_errors(self):
         provider = SequenceAIProvider([
             RuntimeError("Mock provider failure"),
