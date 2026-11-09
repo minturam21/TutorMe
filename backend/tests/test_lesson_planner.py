@@ -66,8 +66,8 @@ class LessonPlannerTests(unittest.TestCase):
         plan = self.create_valid_plan(3)
         LessonPlanner._validate_plan(plan)
 
-    def test_accept_maximum_eight_steps(self):
-        plan = self.create_valid_plan(8)
+    def test_accept_maximum_six_steps(self):
+        plan = self.create_valid_plan(6)
         LessonPlanner._validate_plan(plan)
 
     def test_reject_fewer_than_three_steps(self):
@@ -76,8 +76,8 @@ class LessonPlannerTests(unittest.TestCase):
         with self.assertRaises(LessonPlanningError):
             LessonPlanner._validate_plan(plan)
 
-    def test_reject_more_than_eight_steps(self):
-        plan = self.create_valid_plan(9)
+    def test_reject_more_than_six_steps(self):
+        plan = self.create_valid_plan(7)
 
         with self.assertRaises(LessonPlanningError):
             LessonPlanner._validate_plan(plan)
