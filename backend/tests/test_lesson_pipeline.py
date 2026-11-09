@@ -166,6 +166,16 @@ class LessonPipelineTests(unittest.TestCase):
             self.assertIn("draw_shape", action_types)
 
             self.assertEqual(len(step.visual_actions), 2)
+            self.assertEqual(len(step.teaching_events), 2)
+
+            first_event_types = [
+                obj.type for obj in step.teaching_events[0].expected_scene.objects
+            ]
+            second_event_types = [
+                obj.type for obj in step.teaching_events[1].expected_scene.objects
+            ]
+            self.assertEqual(first_event_types, ["text"])
+            self.assertCountEqual(second_event_types, ["text", "circle"])
 
             scene_types = [
                 scene_object.type
