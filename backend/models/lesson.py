@@ -22,11 +22,21 @@ class PracticeQuestion(BaseModel):
     explanation: str = Field(..., min_length=1)
 
 
+class TeachingEvent(BaseModel):
+    """One synchronized explanation-and-whiteboard event."""
+
+    id: str = Field(..., min_length=1)
+    explanation: str = Field(..., min_length=1)
+    visual_actions: list[VisualAction] = Field(default_factory=list)
+    duration: float = Field(default=1.0, gt=0, le=300)
+
+
 class TeachingStep(BaseModel):
     id: str = Field(..., min_length=1)
     explanation: str
     equations: list[str] = Field(default_factory=list)
     visual_actions: list[VisualAction] = Field(default_factory=list)
+    teaching_events: list[TeachingEvent] = Field(default_factory=list)
     expected_scene: Scene = Field(default_factory=Scene)
     duration: float = Field(default=5.0, gt=0, le=300)
 
