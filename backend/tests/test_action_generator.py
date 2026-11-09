@@ -147,6 +147,40 @@ class ActionGeneratorTests(unittest.TestCase):
             3,
         )
 
+    def test_retries_when_step_equation_action_is_missing_then_recovers(self):
+        self.plan["steps"][0]["equations"] = ["F = ma"]
+
+        def response(actions):
+            return json.dumps({
+                "steps": [{
+                    "id": "step_1",
+                    "teaching_events": [{
+                        "id": "event_1",
+                        "visual_actions": actions,
+                    }],
+                }]
+            })
+
+        missing_equation = response([
+            self.make_handwritten_note(),
+            self.make_circle(),
+        ])
+        complete = response([
+            self.make_handwritten_note(),
+            self.make_circle(),
+            self.make_equation(),
+        ])
+        provider = SequenceAIProvider([missing_equation, complete])
+
+        result = ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn("missing handwritten equation actions", provider.calls[1]["messages"][1]["content"])
+        self.assertEqual(
+            sum(action["type"] == "write_equation" for action in result["steps"][0]["visual_actions"]),
+            1,
+        )
+
     def test_reject_empty_visual_actions(self):
         with self.assertRaises(ActionGenerationError):
             self.generate([])
