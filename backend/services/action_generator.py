@@ -79,10 +79,11 @@ GENERAL RULES:
 21. Across each step, include meaningful handwritten teaching text.
 22. Put a write_text action in the event introducing the corresponding term or definition.
 23. Never copy an entire step explanation paragraph onto the board at once.
-24. Put each equation action in the event that explains that equation.
-25. Preserve the mathematical meaning of every original equation.
-26. Position content deliberately to avoid overlap.
-27. Do not use draw_shape labels as a replacement for write_text actions.
+24. For every equation listed in a teaching step's equations array, generate a corresponding write_equation action. Do not omit any listed equation.
+25. Put each equation action in the event that explains that equation. If a step has no listed equations, do not invent one.
+26. Preserve the mathematical meaning of every original equation.
+27. Position content deliberately to avoid overlap.
+28. Do not use draw_shape labels as a replacement for write_text actions.
 
 SUPPORTED ACTION TYPES AND PARAMETERS:
 
@@ -410,6 +411,40 @@ any step or event. Return JSON only.
                         break
                 if invalid_action_error:
                     break
+
+            if invalid_action_error is None:
+                # Check required handwritten content before accepting a response.
+                # These semantic failures must trigger the corrective retry too.
+                for original_step, generated_step in zip(steps, generated_steps):
+                    expected_equations = original_step.get("equations", [])
+                    generated_events = generated_step.get("teaching_events", [])
+                    equation_count = 0
+                    for event_data in generated_events:
+                        if not isinstance(event_data, dict):
+                            continue
+                        actions = event_data.get("visual_actions", [])
+                        if not isinstance(actions, list):
+                            continue
+                        equation_count += sum(
+                            1 for action in actions
+                            if isinstance(action, dict)
+                            and action.get("type") == "write_equation"
+                            and isinstance(action.get("parameters"), dict)
+                            and isinstance(action["parameters"].get("equation"), str)
+                            and action["parameters"]["equation"].strip()
+                        )
+                    if not isinstance(expected_equations, list):
+                        invalid_action_error = (
+                            f"Step '{original_step['id']}' has invalid equations."
+                        )
+                        break
+                    if equation_count < len(expected_equations):
+                        invalid_action_error = (
+                            f"Step '{original_step['id']}' is missing handwritten "
+                            f"equation actions: expected at least {len(expected_equations)}, "
+                            f"received {equation_count}."
+                        )
+                        break
 
             if invalid_action_error:
                 last_error = invalid_action_error
