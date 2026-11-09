@@ -10,6 +10,7 @@ interface SceneRendererProps {
     objectId: string;
     progress: number;
   } | null;
+  viewBox?: { x: number; y: number; width: number; height: number };
 }
 
 function toHandwrittenTextObject(object: SceneObject): SceneObject {
@@ -38,10 +39,11 @@ export default function SceneRenderer({
   width = 2000,
   height = 1400,
   activeDrawing = null,
+  viewBox,
 }: SceneRendererProps) {
   return (
     <svg
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={viewBox ? `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}` : `0 0 ${width} ${height}` }
       width="100%"
       height="100%"
       preserveAspectRatio="xMidYMid meet"
