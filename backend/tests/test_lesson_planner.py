@@ -137,6 +137,19 @@ class LessonPlannerTests(unittest.TestCase):
         self.assertIn("received 10", retry_messages[1]["content"])
         self.assertIn("at most 6", retry_messages[1]["content"])
 
+    def test_retries_when_ai_returns_one_step_then_recovers(self):
+        invalid_plan = self.create_valid_plan(1)
+        valid_plan = self.create_valid_plan(3)
+        planner, provider = self.create_planner([invalid_plan, valid_plan])
+
+        result = planner.create_plan("What is acceleration?")
+
+        self.assertEqual(len(result["steps"]), 3)
+        self.assertEqual(provider.generate_response.call_count, 2)
+        retry_messages = provider.generate_response.call_args_list[1].kwargs["messages"]
+        self.assertIn("foundation, core principle, and worked application", retry_messages[1]["content"])
+        self.assertIn("between 3 and 6 steps; received 1", retry_messages[1]["content"])
+
     def test_fails_clearly_when_retry_still_has_invalid_step_count(self):
         planner, provider = self.create_planner([
             self.create_valid_plan(10),
