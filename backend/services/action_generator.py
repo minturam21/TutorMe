@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from models.visual_action import VisualAction
 from services.ai_provider import AIProvider
+from services.action_response_schema import ACTION_RESPONSE_FORMAT
 
 
 class ActionGenerationError(Exception):
@@ -284,7 +285,7 @@ any step or event. Return JSON only.
                     ],
                     temperature=0.2,
                     max_tokens=6000,
-                    response_format={"type": "json_object"},
+                    response_format=ACTION_RESPONSE_FORMAT,
                 )
                 result = json.loads(response_text)
             except json.JSONDecodeError as error:
