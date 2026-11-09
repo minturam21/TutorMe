@@ -475,6 +475,8 @@ def ask_tutor(question: Question):
         )
         return {"answer": answer}
 
+    except HTTPException:
+        raise
     except Exception as error:
         print(f"AI provider error: {error}")
         raise HTTPException(
