@@ -421,7 +421,9 @@ any step or event. Return JSON only.
                 f"Action generation failed after {max_attempts} attempts: {last_error}"
             )
 
-        # Identity and order were checked before accepting the response.\n\n        updated_plan = copy.deepcopy(plan)
+        # Identity and order were checked before accepting the response.
+
+        updated_plan = copy.deepcopy(plan)
         all_action_ids = set()
 
         try:
