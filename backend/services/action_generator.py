@@ -290,7 +290,13 @@ any step or event. Return JSON only.
                 )
                 result = json.loads(response_text)
             except json.JSONDecodeError as error:
-                raise ActionGenerationError("AI returned invalid JSON.") from error
+                # Invalid model JSON is a recoverable generation defect. Feed the
+                # parser location back to the model and use the remaining attempts.
+                last_error = (
+                    "AI returned invalid JSON: "
+                    f"{error.msg} (line {error.lineno}, column {error.colno})."
+                )
+                continue
             except Exception as error:
                 # A provider can reject a malformed structured completion before returning
                 # text when JSON mode is enabled. Treat only this output-format
