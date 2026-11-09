@@ -56,10 +56,10 @@ WHITEBOARD COORDINATE SYSTEM:
 - Never use coordinates outside these boundaries.
 
 GENERAL RULES:
-1. Generate actions separately for every teaching event.
+1. Generate concise actions separately for every teaching event.
 2. Preserve all original teaching step and event IDs.
 3. Use only the 13 supported action types.
-4. Every action must have a unique ID across the entire lesson.
+4. Every action ID must be unique across the lesson.
 5. Every newly created object needs a target_id.
 6. Prefix new object IDs with their teaching step ID.
 7. Never create an object whose target_id is currently active.
@@ -69,13 +69,13 @@ GENERAL RULES:
 11. Prefer a fresh step-prefixed object ID when creating a new object.
 12. Keep actions in logical execution order.
 13. Use numeric coordinates and dimensions.
-14. Use short, meaningful action sequences.
+14. Use concise, meaningful action sequences.
 15. Avoid decorative objects.
 16. Never generate actions for student practice answers.
 17. Generate a separate visual_actions list for EACH teaching event.
-18. Each event's actions must represent only the concept explained in that event.
+18. Each event's actions represent only its explained concept; never reveal later content early.
 19. Never reveal content belonging to a later event early.
-20. Every event must contain at least one actual visual action; wait cannot be its only action.
+20. Every event must contain at least one non-wait visual action.
 21. Across each step, include meaningful handwritten teaching text.
 22. Put a write_text action in the event introducing the corresponding term or definition.
 23. Never copy an entire step explanation paragraph onto the board at once.
@@ -191,7 +191,7 @@ Every action must contain:
 
 Duration: 0 to 60 seconds.
 Easing: linear, ease_in, ease_out, ease_in_out.
-Order: integer starting at 0 within each step.
+Order: integer starting at 0 within each event.
 
 Return valid JSON only.
 
@@ -226,11 +226,11 @@ Do not add explanations or Markdown outside JSON.
 """
 
         user_prompt = f"""
-Convert this teaching plan into whiteboard actions.
+Convert this plan into concise whiteboard actions.
 
-TEACHING PLAN:
+PLAN:
 
-{json.dumps(plan, ensure_ascii=False, indent=2)}
+{json.dumps(plan, ensure_ascii=False, separators=(',', ':'))}
 
 Generate actions for every event in every teaching step.
 Preserve every original step ID and teaching event ID.
@@ -255,7 +255,7 @@ Step IDs and event IDs must exactly match the original plan.
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.2,
-                max_tokens=8000,
+                max_tokens=6000,
                 response_format={"type": "json_object"},
             )
 
