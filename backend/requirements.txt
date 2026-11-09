@@ -1,5 +1,6 @@
 fastapi
 pydantic>=2,<3
 groq
+google-genai
 python-dotenv
 httpx
