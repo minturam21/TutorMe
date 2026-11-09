@@ -33,6 +33,7 @@ class LessonPlannerTests(unittest.TestCase):
                         "visual_goal": "Draw the related visual.",
                         "visual_requirements": ["Draw the related visual"],
                     },
+                ],
             })
 
         return {
