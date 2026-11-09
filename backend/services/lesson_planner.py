@@ -93,8 +93,8 @@ Return valid JSON only, using this structure:
     ]
 }
 
-Each teaching step must contain 2 to 8 ordered teaching_events. Each event must explain one small idea only; do not put the entire step explanation into one event. Events must follow the exact teaching order. Associate each event with only the text, equation part, or visual change that belongs to that explanation segment. Do not reveal later concepts in earlier events. The event explanations, in order, must cover the full teaching step without duplicating it.
-Return between 3 and 8 teaching steps.
+Each teaching step must contain 2 to 4 ordered teaching_events. Each event must explain one small idea only; do not put the entire step explanation into one event. Events must follow the exact teaching order. Associate each event with only the text, equation part, or visual change that belongs to that explanation segment. Do not reveal later concepts in earlier events. The event explanations, in order, must cover the full teaching step without duplicating it.
+Return between 3 and 6 teaching steps.
 Return between 3 and 5 practice questions.
 Use an empty array when equations are not relevant.
 Do not include Markdown or text outside the JSON.
@@ -117,7 +117,7 @@ Create a complete teaching plan for this question.
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.3,
-                max_tokens=6000,
+                max_tokens=4500,
                 response_format={"type": "json_object"},
             )
 
@@ -191,7 +191,7 @@ Create a complete teaching plan for this question.
                 "Steps must be a list."
             )
 
-        if not 3 <= len(steps) <= 8:
+        if not 3 <= len(steps) <= 6:
             raise LessonPlanningError(
                 "The lesson must contain between 3 and 8 steps."
             )
@@ -237,7 +237,7 @@ Create a complete teaching plan for this question.
             step_ids.add(step["id"])
 
             events = step.get("teaching_events")
-            if not isinstance(events, list) or not 2 <= len(events) <= 8:
+            if not isinstance(events, list) or not 2 <= len(events) <= 4:
                 raise LessonPlanningError(
                     "Every teaching step must contain between 2 and 8 teaching events."
                 )
