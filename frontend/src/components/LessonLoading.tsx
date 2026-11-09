@@ -68,9 +68,25 @@ export default function LessonLoading() {
         </svg>
       </div>
       <div className="living-network__copy">
-        <span className="living-network__eyebrow">TUTOR ME · WHITEBOARD</span>
-        <h2>Bringing ideas together<span className="living-network__ellipsis">...</span></h2>
-        <p>Preparing a learning experience around your question.</p>
+        <span className="living-network__eyebrow">TUTOR ME · LIVE ACTIVITY</span>
+        <h2>Your lesson is taking shape</h2>
+        <div className="lesson-activity" role="list" aria-label="Lesson preparation activity">
+          <div className="lesson-activity__item is-complete" role="listitem">
+            <span className="lesson-activity__indicator" aria-hidden="true">✓</span>
+            <span>Question received</span>
+            <span className="lesson-activity__meta">DONE</span>
+          </div>
+          <div className="lesson-activity__item is-active" role="listitem">
+            <span className="lesson-activity__indicator" aria-hidden="true"><span /></span>
+            <span>Generating your lesson</span>
+            <span className="lesson-activity__meta">IN PROGRESS</span>
+          </div>
+          <div className="lesson-activity__item is-pending" role="listitem">
+            <span className="lesson-activity__indicator" aria-hidden="true">3</span>
+            <span>Preparing the whiteboard</span>
+            <span className="lesson-activity__meta">NEXT</span>
+          </div>
+        </div>
       </div>
     </section>
   );
