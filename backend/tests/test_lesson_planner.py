@@ -70,6 +70,13 @@ class LessonPlannerTests(unittest.TestCase):
         plan = self.create_valid_plan(6)
         LessonPlanner._validate_plan(plan)
 
+    def test_accept_plan_when_optional_practice_questions_are_omitted(self):
+        plan = self.create_valid_plan(3)
+        del plan["practice_questions"]
+
+        LessonPlanner._validate_plan(plan)
+        self.assertEqual(plan["practice_questions"], [])
+
     def test_reject_fewer_than_three_steps(self):
         plan = self.create_valid_plan(2)
 
