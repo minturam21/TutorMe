@@ -149,13 +149,13 @@ class AIProvider:
                 config = {"temperature": temperature}
                 if system_instruction:
                     config["system_instruction"] = system_instruction
+                yielded_content = False
                 try:
                     stream = self.client.models.generate_content_stream(
                         model=self.model,
                         contents=contents,
                         config=config,
                     )
-                    yielded_content = False
                     for chunk in stream:
                         if chunk.text:
                             yielded_content = True
