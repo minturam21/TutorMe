@@ -444,7 +444,7 @@ class ActionGeneratorTests(unittest.TestCase):
 
         self.assertEqual(len(provider.calls), 2)
         self.assertEqual(
-            result["steps"][0]["visual_actions"][0]["parameters"]["height"],
+            result["steps"][0]["visual_actions"][1]["parameters"]["height"],
             20,
         )
         self.assertIn(
