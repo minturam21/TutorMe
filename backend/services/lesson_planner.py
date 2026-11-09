@@ -71,6 +71,16 @@ Return valid JSON only, using this structure:
             "visual_goal": "What the whiteboard should demonstrate",
             "visual_requirements": [
                 "Describe the required visual elements"
+            ],
+            "teaching_events": [
+                {
+                    "id": "event_1",
+                    "explanation": "One short, ordered explanation segment.",
+                    "visual_goal": "What should appear while this segment is explained.",
+                    "visual_requirements": [
+                        "The exact handwritten text, equation part, or visual change for this segment"
+                    ]
+                }
             ]
         }
     ],
@@ -83,6 +93,7 @@ Return valid JSON only, using this structure:
     ]
 }
 
+Each teaching step must contain 2 to 8 ordered teaching_events. Each event must explain one small idea only; do not put the entire step explanation into one event. Events must follow the exact teaching order. Associate each event with only the text, equation part, or visual change that belongs to that explanation segment. Do not reveal later concepts in earlier events. The event explanations, in order, must cover the full teaching step without duplicating it.
 Return between 3 and 8 teaching steps.
 Return between 3 and 5 practice questions.
 Use an empty array when equations are not relevant.
@@ -224,6 +235,39 @@ Create a complete teaching plan for this question.
                 )
 
             step_ids.add(step["id"])
+
+            events = step.get("teaching_events")
+            if not isinstance(events, list) or not 2 <= len(events) <= 8:
+                raise LessonPlanningError(
+                    "Every teaching step must contain between 2 and 8 teaching events."
+                )
+
+            event_ids = set()
+            for event in events:
+                if not isinstance(event, dict):
+                    raise LessonPlanningError("Every teaching event must be an object.")
+
+                for field in ["id", "explanation", "visual_goal"]:
+                    if not isinstance(event.get(field), str) or not event[field].strip():
+                        raise LessonPlanningError(
+                            f"Every teaching event needs a non-empty {field}."
+                        )
+
+                if event["id"] in event_ids:
+                    raise LessonPlanningError(
+                        f"Duplicate teaching event ID: {event['id']}"
+                    )
+                event_ids.add(event["id"])
+
+                requirements = event.get("visual_requirements")
+                if not isinstance(requirements, list) or not requirements:
+                    raise LessonPlanningError(
+                        "Every teaching event needs visual_requirements."
+                    )
+                if any(not isinstance(item, str) or not item.strip() for item in requirements):
+                    raise LessonPlanningError(
+                        "Every event visual requirement must be a non-empty string."
+                    )
 
             for field in step_list_fields:
 
