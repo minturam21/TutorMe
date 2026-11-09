@@ -397,6 +397,15 @@ any step or event. Return JSON only.
                         if not isinstance(action_data, dict):
                             continue
                         candidate = {**action_data, "order": 0}
+                        # Strict JSON Schema requires every parameter key; null
+                        # placeholders are transport-only and must not reach
+                        # the action-specific Pydantic models (extra=forbid).
+                        if isinstance(candidate.get("parameters"), dict):
+                            candidate["parameters"] = {
+                                key: value
+                                for key, value in candidate["parameters"].items()
+                                if value is not None
+                            }
                         try:
                             VisualAction.model_validate(candidate)
                         except ValidationError as error:
@@ -498,6 +507,12 @@ any step or event. Return JSON only.
                         # The action's position in the event is authoritative.
                         # Do not rely on the AI to provide a required sequence field.
                         action_data = {**action_data, "order": action_index}
+                        if isinstance(action_data.get("parameters"), dict):
+                            action_data["parameters"] = {
+                                key: value
+                                for key, value in action_data["parameters"].items()
+                                if value is not None
+                            }
                         action = VisualAction.model_validate(action_data)
                         if action.id in all_action_ids:
                             raise ActionGenerationError(f"Duplicate action ID: {action.id}")
