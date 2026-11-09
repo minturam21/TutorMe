@@ -135,6 +135,46 @@ class ActionGeneratorTests(unittest.TestCase):
             "write_text",
         )
 
+    def test_uses_groq_strict_json_schema_and_strips_null_parameters(self):
+        note = self.make_handwritten_note()
+        note["parameters"] = {
+            key: None for key in PARAMETER_KEYS
+        } | {
+            "text": "Force",
+            "x": 100,
+            "y": 100,
+        }
+        response = json.dumps({
+            "steps": [{
+                "id": "step_1",
+                "teaching_events": [{
+                    "id": "event_1",
+                    "visual_actions": [note],
+                }],
+            }]
+        })
+        provider = SequenceAIProvider([response])
+
+        result = ActionGenerator(provider).generate_actions(self.plan)
+
+        response_format = provider.calls[0]["response_format"]
+        self.assertEqual(response_format["type"], "json_schema")
+        self.assertTrue(response_format["json_schema"]["strict"])
+        self.assertEqual(
+            response_format["json_schema"]["schema"]["required"],
+            ["steps"],
+        )
+        self.assertEqual(
+            result["steps"][0]["visual_actions"][0]["parameters"],
+            {"text": "Force", "x": 100, "y": 100},
+        )
+        self.assertEqual(
+            set(response_format["json_schema"]["schema"]["properties"]["steps"]["items"]
+                ["properties"]["teaching_events"]["items"]["properties"]["visual_actions"]
+                ["items"]["properties"]["parameters"]["required"]),
+            set(PARAMETER_KEYS),
+        )
+
     def test_accept_wait_alongside_visual_action(self):
         result = self.generate([
             self.make_action("action_1", "wait", 0),
