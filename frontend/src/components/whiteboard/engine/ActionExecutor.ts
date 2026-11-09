@@ -32,6 +32,8 @@ export class ActionExecutor {
 
   private cancelled = false;
   private executionId = 0;
+  private sequencePaused = false;
+  private resumeSequence: (() => void) | null = null;
 
   constructor(sceneManager: SceneManager) {
     this.sceneManager = sceneManager;
@@ -41,7 +43,9 @@ export class ActionExecutor {
   cancel(): void {
     this.cancelled = true;
     this.executionId++;
-
+    this.sequencePaused = false;
+    this.resumeSequence?.();
+    this.resumeSequence = null;
     this.animationEngine.cancel();
   }
 
@@ -52,11 +56,23 @@ export class ActionExecutor {
   }
 
   pause(): void {
+    this.sequencePaused = true;
     this.animationEngine.pause();
   }
 
   resume(): void {
+    this.sequencePaused = false;
     this.animationEngine.resume();
+    this.resumeSequence?.();
+    this.resumeSequence = null;
+  }
+
+  private async waitWhilePaused(executionId: number): Promise<void> {
+    while (this.sequencePaused && !this.cancelled && executionId === this.executionId) {
+      await new Promise<void>((resolve) => {
+        this.resumeSequence = resolve;
+      });
+    }
   }
 
   isRunning(): boolean {
@@ -88,6 +104,8 @@ export class ActionExecutor {
     );
 
     for (let index = 0; index < orderedActions.length; index++) {
+      await this.waitWhilePaused(currentExecutionId);
+
       if (
         this.cancelled ||
         currentExecutionId !== this.executionId
