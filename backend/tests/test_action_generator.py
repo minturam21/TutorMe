@@ -370,6 +370,30 @@ class ActionGeneratorTests(unittest.TestCase):
         with self.assertRaises(ActionGenerationError):
             generator.generate_actions(self.plan)
 
+    def test_retries_invalid_json_then_recovers(self):
+        valid_response = json.dumps({
+            "steps": [{
+                "id": "step_1",
+                "teaching_events": [{
+                    "id": "event_1",
+                    "visual_actions": [
+                        self.make_handwritten_note(),
+                        self.make_circle(),
+                    ],
+                }],
+            }]
+        })
+        provider = SequenceAIProvider([
+            "This is not valid JSON",
+            valid_response,
+        ])
+
+        result = ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn("AI returned invalid JSON", provider.calls[1]["messages"][1]["content"])
+        self.assertEqual(len(result["steps"]), 1)
+
     def test_reject_mismatched_step_ids(self):
         response = {
             "steps": [
