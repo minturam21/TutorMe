@@ -14,6 +14,7 @@ import "./App.css";
 
 import Whiteboard from "./components/Whiteboard";
 import StructuredLessonWhiteboard from "./components/whiteboard/StructuredLessonWhiteboard";
+import LessonLoading from "./components/LessonLoading";
 
 import { chatApi } from "./services/chatApi";
 import { lessonApi } from "./services/lessonApi";
@@ -442,18 +443,7 @@ function App() {
         >
           {isWhiteboardMode ? (
             loading ? (
-              <div className="lesson-loading">
-                <div className="loading-spinner" />
-
-                <h2>Preparing your lesson...</h2>
-
-                <p>
-                  TutorMe is planning your lesson and preparing its visual
-                  steps.
-                </p>
-
-                <span>Please wait a moment.</span>
-              </div>
+              <LessonLoading />
             ) : lesson ? (
               <StructuredLessonWhiteboard lesson={lesson} />
             ) : (
