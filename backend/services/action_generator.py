@@ -77,8 +77,8 @@ GENERAL RULES:
 18. Each event's actions represent only its explained concept; never reveal later content early.
 19. Never reveal content belonging to a later event early.
 20. Every event must contain at least one non-wait visual action.
-21. Across each step, include meaningful handwritten teaching text.
-22. Put a write_text action in the event introducing the corresponding term or definition.
+21. Every teaching step MUST contain at least one non-empty write_text action across its events; equations and diagram labels do not replace this handwritten teaching note.
+22. Put a write_text action in the event introducing the corresponding term or definition. The note must be a short, relevant label, definition fragment, or key takeaway for that step.
 23. Never copy an entire step explanation paragraph onto the board at once.
 24. For every equation listed in a teaching step's equations array, generate a corresponding write_equation action. Do not omit any listed equation.
 25. Put each equation action in the event that explains that equation. If a step has no listed equations, do not invent one.
@@ -268,9 +268,10 @@ Your previous response was rejected:
 {last_error}
 
 Regenerate the COMPLETE visual-action JSON for the original plan.
-Correct the reported problem precisely. EVERY creation action (create_object,
-draw_shape, draw_line, draw_arrow, draw_path, write_text, write_equation) must
-have its own non-empty top-level target_id. Never put target_id inside parameters.
+Correct the reported problem precisely. Every step must contain at least one non-empty
+write_text action across its events, even when the step contains equations or diagrams.
+EVERY creation action (create_object, draw_shape, draw_line, draw_arrow, draw_path,
+write_text, write_equation) must have its own non-empty top-level target_id. Never put target_id inside parameters.
 For draw_arrow, use a unique step-prefixed ID such as step_1_force_arrow.
 The plan contains exactly {len(steps)} teaching steps. Return exactly {len(steps)}
 step objects, preserving every original step
@@ -456,6 +457,24 @@ any step or event. Return JSON only.
                             f"Step '{original_step['id']}' is missing handwritten "
                             f"equation actions: expected at least {len(expected_equations)}, "
                             f"received {equation_count}."
+                        )
+                        break
+
+                    has_handwritten_note = any(
+                        isinstance(action, dict)
+                        and action.get("type") == "write_text"
+                        and isinstance(action.get("parameters"), dict)
+                        and isinstance(action["parameters"].get("text"), str)
+                        and action["parameters"]["text"].strip()
+                        for event_data in generated_events
+                        if isinstance(event_data, dict)
+                        for action in event_data.get("visual_actions", [])
+                        if isinstance(event_data.get("visual_actions", []), list)
+                    )
+                    if not has_handwritten_note:
+                        invalid_action_error = (
+                            f"Step '{original_step['id']}' has no handwritten teaching note. "
+                            "Add at least one non-empty write_text action to one of its events."
                         )
                         break
 
