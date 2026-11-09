@@ -24,6 +24,10 @@ export interface ActionExecutionOptions {
   ) => void;
 
   onError?: (error: Error, action: VisualAction) => void;
+  /** Resume the first action from this normalized progress value. */
+  initialProgress?: number;
+  /** The first action is already present in the reconstructed scene. */
+  firstActionAlreadyApplied?: boolean;
 }
 
 export class ActionExecutor {
@@ -120,7 +124,10 @@ export class ActionExecutor {
 
         // Apply the scene change first.
         // DrawingRenderer will use progress to reveal it.
-        this.sceneManager.applyAction(action);
+        const initialProgress = index === 0 ? options.initialProgress ?? 0 : 0;
+        if (!(index === 0 && options.firstActionAlreadyApplied)) {
+          this.sceneManager.applyAction(action);
+        }
 
         const durationMs =
           (action.duration * 1000) / playbackSpeed;
@@ -144,7 +151,8 @@ export class ActionExecutor {
               progress
             );
           },
-          easing
+          easing,
+          initialProgress
         );
 
         if (
