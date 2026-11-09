@@ -60,7 +60,7 @@ GENERAL RULES:
 2. Preserve all original teaching step and event IDs.
 3. Use only the 13 supported action types.
 4. Every action ID must be unique across the lesson.
-5. Every newly created object needs a target_id.
+5. EVERY creation action (create_object, draw_shape, draw_line, draw_arrow, draw_path, write_text, write_equation) MUST include its own non-empty top-level target_id.
 6. Prefix new object IDs with their teaching step ID.
 7. Never create an object whose target_id is currently active.
 8. Create objects before modifying them.
@@ -123,7 +123,7 @@ For circles, width and height represent diameter.
 }
 
 4. draw_arrow
-Uses the same parameters as draw_line.
+Uses the same parameters as draw_line. It MUST include a top-level target_id, e.g. "target_id": "step_1_force_arrow".
 
 5. draw_path
 {
@@ -251,10 +251,9 @@ Each object must contain:
 Before finishing, verify that the output step count equals {len(steps)} and that every original step ID appears exactly once.
 """
 
-        # Large lesson plans can exceed the model's practical structured-output
-        # reliability. Retry once when the response is valid JSON but omits steps.
-        # Never truncate, duplicate, or silently discard planned teaching content.
-        max_attempts = 2
+        # Allow two corrective retries for recoverable model-output defects.
+        # Invalid actions are never accepted merely to make generation pass.
+        max_attempts = 3
         last_error = None
         result = None
         generated_steps = None
@@ -268,8 +267,12 @@ Your previous response was rejected:
 {last_error}
 
 Regenerate the COMPLETE visual-action JSON for the original plan.
-Correct the reported problem. The plan contains exactly {len(steps)} teaching
-steps. Return exactly {len(steps)} step objects, preserving every original step
+Correct the reported problem precisely. EVERY creation action (create_object,
+draw_shape, draw_line, draw_arrow, draw_path, write_text, write_equation) must
+have its own non-empty top-level target_id. Never put target_id inside parameters.
+For draw_arrow, use a unique step-prefixed ID such as step_1_force_arrow.
+The plan contains exactly {len(steps)} teaching steps. Return exactly {len(steps)}
+step objects, preserving every original step
 ID and every teaching event ID in order. Do not omit, merge, split, or summarize
 any step or event. Return JSON only.
 """
