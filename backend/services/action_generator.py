@@ -283,21 +283,29 @@ Step IDs and event IDs must exactly match the original plan.
                 "AI response must contain a steps list."
             )
 
-        original_step_ids = [step["id"] for step in steps]
-
         if any(not isinstance(step, dict) for step in generated_steps):
             raise ActionGenerationError(
                 "Generated teaching steps must be objects."
             )
 
-        generated_step_ids = [
-            step.get("id") for step in generated_steps
-        ]
-
-        if generated_step_ids != original_step_ids:
+        if len(generated_steps) != len(steps):
             raise ActionGenerationError(
-                "Generated step IDs do not match the original plan."
+                "Generated teaching step count does not match the original plan."
             )
+
+        # IDs are references owned by the original plan. The AI may reproduce
+        # their content correctly but alter their strings; pair steps by their
+        # required array order and restore the authoritative IDs.
+        for original_step, generated_step in zip(steps, generated_steps):
+            generated_step["id"] = original_step["id"]
+
+            original_events = original_step.get("teaching_events")
+            generated_events = generated_step.get("teaching_events")
+            if isinstance(original_events, list) and isinstance(generated_events, list):
+                if len(generated_events) == len(original_events):
+                    for original_event, generated_event in zip(original_events, generated_events):
+                        if isinstance(generated_event, dict):
+                            generated_event["id"] = original_event["id"]
 
         updated_plan = copy.deepcopy(plan)
         all_action_ids = set()
