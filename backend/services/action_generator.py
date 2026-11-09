@@ -233,8 +233,9 @@ PLAN:
 {json.dumps(plan, ensure_ascii=False, separators=(',', ':'))}
 
 Generate actions for every event in every teaching step.
-Preserve every original step ID and teaching event ID.
-Return events in the exact original order.
+The original plan contains exactly {len(steps)} teaching steps. Return exactly {len(steps)} step objects: neither fewer nor more.
+Preserve every original step ID and teaching event ID exactly as written in the plan.
+Return all steps and events in the exact original order. Do not merge steps, omit steps, split steps, or stop early.
 Use the 2000 x 1400 coordinate system.
 Follow every action parameter specification.
 
@@ -245,7 +246,7 @@ Each object must contain:
 - id
 - teaching_events, each containing id and visual_actions
 
-Step IDs and event IDs must exactly match the original plan.
+Before finishing, verify that the output step count equals {len(steps)} and that every original step ID appears exactly once.
 """
 
         try:
@@ -290,7 +291,7 @@ Step IDs and event IDs must exactly match the original plan.
 
         if len(generated_steps) != len(steps):
             raise ActionGenerationError(
-                "Generated teaching step count does not match the original plan."
+                f"Generated {len(generated_steps)} teaching steps, but the original plan contains {len(steps)}."
             )
 
         # IDs are references owned by the original plan. The AI may reproduce
