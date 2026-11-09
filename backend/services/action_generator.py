@@ -322,6 +322,58 @@ any step or event. Return JSON only.
                 )
                 continue
 
+            # Step and event identity/order are part of the plan contract.
+            # Never relabel generated content to make a mismatched response
+            # appear valid: doing so can attach one concept's actions to another.
+            identity_error = None
+            for step_index, (original_step, generated_step) in enumerate(
+                zip(steps, generated_steps)
+            ):
+                expected_step_id = original_step["id"]
+                actual_step_id = generated_step.get("id")
+                if actual_step_id != expected_step_id:
+                    identity_error = (
+                        f"Generated step at position {step_index} has ID "
+                        f"'{actual_step_id}', expected '{expected_step_id}'."
+                    )
+                    break
+
+                original_events = original_step.get("teaching_events")
+                generated_events = generated_step.get("teaching_events")
+                if not isinstance(original_events, list) or not isinstance(generated_events, list):
+                    identity_error = (
+                        f"Step '{expected_step_id}' must contain teaching_events lists."
+                    )
+                    break
+                if len(generated_events) != len(original_events):
+                    identity_error = (
+                        f"Step '{expected_step_id}' generated {len(generated_events)} "
+                        f"events, but the plan contains {len(original_events)}."
+                    )
+                    break
+
+                for event_index, (original_event, generated_event) in enumerate(
+                    zip(original_events, generated_events)
+                ):
+                    expected_event_id = original_event.get("id")
+                    actual_event_id = (
+                        generated_event.get("id")
+                        if isinstance(generated_event, dict)
+                        else None
+                    )
+                    if actual_event_id != expected_event_id:
+                        identity_error = (
+                            f"Step '{expected_step_id}' event at position {event_index} "
+                            f"has ID '{actual_event_id}', expected '{expected_event_id}'."
+                        )
+                        break
+                if identity_error:
+                    break
+
+            if identity_error:
+                last_error = identity_error
+                continue
+
             # Validate each action before accepting this generation attempt.
             # Invalid model output gets one corrective retry, just like an
             # incomplete step list, instead of failing the whole lesson later.
@@ -369,21 +421,7 @@ any step or event. Return JSON only.
                 f"Action generation failed after {max_attempts} attempts: {last_error}"
             )
 
-        # IDs are references owned by the original plan. The AI may reproduce
-        # their content correctly but alter their strings; pair steps by their
-        # required array order and restore the authoritative IDs.
-        for original_step, generated_step in zip(steps, generated_steps):
-            generated_step["id"] = original_step["id"]
-
-            original_events = original_step.get("teaching_events")
-            generated_events = generated_step.get("teaching_events")
-            if isinstance(original_events, list) and isinstance(generated_events, list):
-                if len(generated_events) == len(original_events):
-                    for original_event, generated_event in zip(original_events, generated_events):
-                        if isinstance(generated_event, dict):
-                            generated_event["id"] = original_event["id"]
-
-        updated_plan = copy.deepcopy(plan)
+        # Identity and order were checked before accepting the response.\n\n        updated_plan = copy.deepcopy(plan)
         all_action_ids = set()
 
         try:
