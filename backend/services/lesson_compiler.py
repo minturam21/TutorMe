@@ -162,24 +162,71 @@ class LessonCompiler:
                         "Every teaching step must be a dictionary."
                     )
 
-                actions = step.get("visual_actions")
-
-                if not isinstance(actions, list):
-                    raise LessonCompilationError(
-                        f"Invalid visual actions in {step.get('id')}."
-                    )
-
+                teaching_events = step.get("teaching_events", [])
+                compiled_events = []
+                flattened_actions = []
                 action_duration = 0.0
 
-                for action in actions:
-                    if not isinstance(action, dict):
+                if teaching_events:
+                    if not isinstance(teaching_events, list):
                         raise LessonCompilationError(
-                            "Every visual action must be a dictionary."
+                            f"Invalid teaching events in {step.get('id')}."
                         )
 
-                    action_duration += action.get("duration", 0)
+                    for event in teaching_events:
+                        if not isinstance(event, dict) or not event.get("id"):
+                            raise LessonCompilationError(
+                                f"Every teaching event in {step.get('id')} needs an ID."
+                            )
 
-                    self._apply_action(scene_objects, action)
+                        event_actions = event.get("visual_actions")
+                        if not isinstance(event_actions, list) or not event_actions:
+                            raise LessonCompilationError(
+                                f"Event '{event.get('id')}' contains no visual actions."
+                            )
+
+                        event_duration = 0.0
+                        for action in event_actions:
+                            if not isinstance(action, dict):
+                                raise LessonCompilationError(
+                                    "Every event visual action must be a dictionary."
+                                )
+                            event_duration += action.get("duration", 0)
+                            self._apply_action(scene_objects, action)
+                            flattened_actions.append(deepcopy(action))
+
+                        event_snapshot = {
+                            "objects": deepcopy(list(scene_objects.values()))
+                        }
+                        event_duration = max(0.1, event_duration)
+                        action_duration += event_duration
+
+                        compiled_events.append({
+                            "id": event["id"],
+                            "explanation": event["explanation"],
+                            "visual_actions": event_actions,
+                            "expected_scene": event_snapshot,
+                            "duration": event_duration,
+                        })
+
+                    for global_order, action in enumerate(flattened_actions):
+                        action["order"] = global_order
+
+                    actions = flattened_actions
+                else:
+                    actions = step.get("visual_actions")
+                    if not isinstance(actions, list):
+                        raise LessonCompilationError(
+                            f"Invalid visual actions in {step.get('id')}."
+                        )
+
+                    for action in actions:
+                        if not isinstance(action, dict):
+                            raise LessonCompilationError(
+                                "Every visual action must be a dictionary."
+                            )
+                        action_duration += action.get("duration", 0)
+                        self._apply_action(scene_objects, action)
 
                 step_duration = min(
                     300.0,
@@ -187,19 +234,21 @@ class LessonCompiler:
                 )
 
                 expected_scene = {
-                    "objects": deepcopy(
-                        list(scene_objects.values())
-                    )
+                    "objects": deepcopy(list(scene_objects.values()))
                 }
 
-                compiled_steps.append({
+                compiled_step = {
                     "id": step["id"],
                     "explanation": step["explanation"],
                     "equations": step.get("equations", []),
                     "visual_actions": actions,
                     "expected_scene": expected_scene,
                     "duration": step_duration,
-                })
+                }
+                if compiled_events:
+                    compiled_step["teaching_events"] = compiled_events
+
+                compiled_steps.append(compiled_step)
 
             lesson_data = {
                 "id": str(uuid4()),
