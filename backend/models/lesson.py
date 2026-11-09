@@ -28,6 +28,7 @@ class TeachingEvent(BaseModel):
     id: str = Field(..., min_length=1)
     explanation: str = Field(..., min_length=1)
     visual_actions: list[VisualAction] = Field(default_factory=list)
+    expected_scene: Scene = Field(default_factory=Scene)
     duration: float = Field(default=1.0, gt=0, le=300)
 
 
