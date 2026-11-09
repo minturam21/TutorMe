@@ -1,4 +1,3 @@
-
 import json
 
 from services.ai_provider import AIProvider
@@ -12,6 +11,8 @@ class LessonPlanner:
     """
     Converts a student's question into a structured teaching plan.
     """
+
+    MAX_GENERATION_ATTEMPTS = 2
 
     def __init__(self, ai_provider: AIProvider | None = None):
         self.ai_provider = ai_provider or AIProvider()
@@ -94,13 +95,13 @@ Return valid JSON only, using this structure:
 }
 
 Each teaching step must contain 2 to 4 ordered teaching_events. Each event must explain one small idea only; do not put the entire step explanation into one event. Events must follow the exact teaching order. Associate each event with only the text, equation part, or visual change that belongs to that explanation segment. Do not reveal later concepts in earlier events. The event explanations, in order, must cover the full teaching step without duplicating it.
-Return between 3 and 6 teaching steps.
+Return between 3 and 6 teaching steps. This limit is mandatory: never return 7 or more steps.
 Return between 3 and 5 practice questions.
 Use an empty array when equations are not relevant.
 Do not include Markdown or text outside the JSON.
 """
 
-        user_prompt = f"""
+        base_user_prompt = f"""
 Student question: {question}
 
 Requested subject: {subject or "Identify the appropriate subject"}
@@ -110,32 +111,52 @@ Requested difficulty: {difficulty}
 Create a complete teaching plan for this question.
 """
 
-        try:
-            response_text = self.ai_provider.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.3,
-                max_tokens=4500,
-                response_format={"type": "json_object"},
-            )
+        last_error = None
 
-            plan = json.loads(response_text)
+        for attempt in range(self.MAX_GENERATION_ATTEMPTS):
+            user_prompt = base_user_prompt
 
-        except json.JSONDecodeError as error:
-            raise LessonPlanningError(
-                "AI returned invalid JSON."
-            ) from error
+            if last_error is not None:
+                user_prompt += f"""
 
-        except Exception as error:
-            raise LessonPlanningError(
-                f"Lesson planning failed: {error}"
-            ) from error
+Your previous response was rejected by the application validator:
+{last_error}
 
-        self._validate_plan(plan)
+Regenerate the complete lesson plan. Correct the validation error.
+The steps array must contain at least 3 and at most 6 teaching steps.
+Do not solve this by omitting required teaching content or returning a partial plan.
+Return the complete corrected JSON only.
+"""
 
-        return plan
+            try:
+                response_text = self.ai_provider.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.3,
+                    max_tokens=4500,
+                    response_format={"type": "json_object"},
+                )
+                plan = json.loads(response_text)
+                self._validate_plan(plan)
+                return plan
+
+            except json.JSONDecodeError as error:
+                last_error = LessonPlanningError("AI returned invalid JSON.")
+
+            except LessonPlanningError as error:
+                last_error = error
+
+            except Exception as error:
+                raise LessonPlanningError(
+                    f"Lesson planning failed: {error}"
+                ) from error
+
+        raise LessonPlanningError(
+            f"Lesson planning failed after {self.MAX_GENERATION_ATTEMPTS} attempts: "
+            f"{last_error}"
+        ) from last_error
 
     @staticmethod
     def _validate_plan(plan: dict) -> None:
@@ -245,7 +266,7 @@ Create a complete teaching plan for this question.
             events = step.get("teaching_events")
             if not isinstance(events, list) or not 2 <= len(events) <= 4:
                 raise LessonPlanningError(
-                    "Every teaching step must contain between 2 and 8 teaching events."
+                    "Every teaching step must contain between 2 and 4 teaching events."
                 )
 
             event_ids = set()
