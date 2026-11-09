@@ -90,21 +90,6 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
     return () => { runIdRef.current++; executor.cancel(); };
   }, [lesson.id]);
 
-  function loadStep(index: number) {
-    if (index < 0 || index >= lesson.steps.length) return;
-    runIdRef.current++;
-    executorRef.current!.cancel();
-    const startingScene = index === 0 ? lesson.initial_scene : lesson.steps[index - 1].expected_scene;
-    managerRef.current!.loadScene(startingScene);
-    setScene(managerRef.current!.getScene());
-    setActiveStepIndex(index);
-    setActiveEvent(null);
-    setExplanationProgress(0);
-    setIsPlaying(false);
-    setIsPaused(false);
-    setActiveDrawing(null);
-  }
-
   async function playLesson() {
     if (isPlaying || isPaused) return;
     const runId = ++runIdRef.current;
