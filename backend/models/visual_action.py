@@ -77,6 +77,9 @@ class VisualAction(BaseModel):
 
     @model_validator(mode="after")
     def validate_parameters(self):
+        if self.type != "wait" and not self.target_id:
+            raise ValueError(f"{self.type} requires a target_id.")
+
         parameter_model = PARAMETER_MODELS[self.type]
 
         validated_parameters = parameter_model.model_validate(
