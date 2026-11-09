@@ -98,12 +98,12 @@ class LessonPlannerTests(unittest.TestCase):
         with self.assertRaises(LessonPlanningError):
             LessonPlanner._validate_plan(plan)
 
-    def test_reject_fewer_than_three_questions(self):
+    def test_accept_fewer_than_three_optional_questions(self):
         plan = self.create_valid_plan(3)
         plan["practice_questions"] = plan["practice_questions"][:2]
 
-        with self.assertRaises(LessonPlanningError):
-            LessonPlanner._validate_plan(plan)
+        LessonPlanner._validate_plan(plan)
+        self.assertEqual(len(plan["practice_questions"]), 2)
 
     def test_reject_more_than_five_questions(self):
         plan = self.create_valid_plan(3)
