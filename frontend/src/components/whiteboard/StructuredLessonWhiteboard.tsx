@@ -292,8 +292,6 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
       <div className="structured-whiteboard-header">
         <div style={{ width: "100%" }}>
           <HandwrittenTextLine id={`lesson-${lesson.id}-title`} text={lesson.title} fontSize={48} minHeight={100} />
-          <HandwrittenTextLine id={`lesson-${lesson.id}-step-${activeStep.id}`}
-            text={`Step ${activeStepIndex + 1} of ${lesson.steps.length}`} fontSize={28} minHeight={64} />
         </div>
       </div>
       <div className="structured-whiteboard-canvas">
