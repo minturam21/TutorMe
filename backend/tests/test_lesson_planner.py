@@ -20,6 +20,19 @@ class LessonPlannerTests(unittest.TestCase):
                 "equations": [],
                 "visual_goal": "Show the concept",
                 "visual_requirements": ["Draw a diagram"],
+                "teaching_events": [
+                    {
+                        "id": f"event_{i + 1}_1",
+                        "explanation": "Introduce the concept.",
+                        "visual_goal": "Write the concept name.",
+                        "visual_requirements": ["Handwrite the concept name"],
+                    },
+                    {
+                        "id": f"event_{i + 1}_2",
+                        "explanation": "Explain its effect.",
+                        "visual_goal": "Draw the related visual.",
+                        "visual_requirements": ["Draw the related visual"],
+                    },
             })
 
         return {
