@@ -352,7 +352,15 @@ Do not omit, merge, split, or summarize any step or event. Return JSON only.
                         raise ActionGenerationError(f"Event '{original_event['id']}' contains no visual actions.")
 
                     validated_actions = []
-                    for action_data in actions:
+                    for action_index, action_data in enumerate(actions):
+                        if not isinstance(action_data, dict):
+                            raise ActionGenerationError(
+                                f"Invalid action in event '{original_event['id']}'."
+                            )
+
+                        # The action's position in the event is authoritative.
+                        # Do not rely on the AI to provide a required sequence field.
+                        action_data = {**action_data, "order": action_index}
                         action = VisualAction.model_validate(action_data)
                         if action.id in all_action_ids:
                             raise ActionGenerationError(f"Duplicate action ID: {action.id}")

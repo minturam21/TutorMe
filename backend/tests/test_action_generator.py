@@ -272,5 +272,31 @@ class ActionGeneratorTests(unittest.TestCase):
             generator.generate_actions(invalid_plan)
 
 
+    def test_action_order_is_assigned_by_array_position(self):
+        note = self.make_handwritten_note()
+        circle = self.make_circle()
+
+        # Simulate the AI omitting order and supplying an incorrect order.
+        note.pop("order")
+        circle["order"] = 99
+
+        result = self.generate([note, circle])
+
+        actions = result["steps"][0]["visual_actions"]
+
+        self.assertEqual(
+            [action["order"] for action in actions],
+            [0, 1],
+        )
+
+    def test_reject_non_dictionary_action(self):
+        with self.assertRaises(ActionGenerationError):
+            self.generate([
+                None,
+                self.make_handwritten_note(),
+            ])
+
+
+
 if __name__ == "__main__":
     unittest.main()
