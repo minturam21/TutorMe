@@ -238,6 +238,7 @@ Preserve every original step ID and teaching event ID exactly as written in the 
 Return all steps and events in the exact original order. Do not merge steps, omit steps, split steps, or stop early.
 Use the 2000 x 1400 coordinate system.
 Follow every action parameter specification.
+All dimensions such as width, height, and scale factors must be strictly greater than zero. Never emit zero or negative dimensions.
 
 IMPORTANT:
 The steps array must contain JSON objects only.
@@ -299,13 +300,55 @@ Do not omit, merge, split, or summarize any step or event. Return JSON only.
             if any(not isinstance(step, dict) for step in generated_steps):
                 raise ActionGenerationError("Generated teaching steps must be objects.")
 
-            if len(generated_steps) == len(steps):
-                break
+            if len(generated_steps) != len(steps):
+                last_error = (
+                    f"Generated {len(generated_steps)} teaching steps, "
+                    f"but the original plan contains {len(steps)}."
+                )
+                continue
 
-            last_error = (
-                f"Generated {len(generated_steps)} teaching steps, "
-                f"but the original plan contains {len(steps)}."
-            )
+            # Validate each action before accepting this generation attempt.
+            # Invalid model output gets one corrective retry, just like an
+            # incomplete step list, instead of failing the whole lesson later.
+            invalid_action_error = None
+            for step_data in generated_steps:
+                events = step_data.get("teaching_events")
+                if not isinstance(events, list):
+                    continue
+                for event_data in events:
+                    if not isinstance(event_data, dict):
+                        continue
+                    actions = event_data.get("visual_actions")
+                    if not isinstance(actions, list):
+                        continue
+                    for action_data in actions:
+                        if not isinstance(action_data, dict):
+                            continue
+                        candidate = {**action_data, "order": 0}
+                        try:
+                            VisualAction.model_validate(candidate)
+                        except ValidationError as error:
+                            action_id = action_data.get("id", "<missing>")
+                            action_type = action_data.get("type", "<missing>")
+                            details = "; ".join(
+                                f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
+                                for item in error.errors()
+                            )
+                            invalid_action_error = (
+                                f"Action '{action_id}' (type '{action_type}') "
+                                f"has invalid parameters: {details}"
+                            )
+                            break
+                    if invalid_action_error:
+                        break
+                if invalid_action_error:
+                    break
+
+            if invalid_action_error:
+                last_error = invalid_action_error
+                continue
+
+            break
         else:
             raise ActionGenerationError(
                 f"Action generation failed after {max_attempts} attempts: {last_error}"

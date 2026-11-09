@@ -418,6 +418,54 @@ class ActionGeneratorTests(unittest.TestCase):
         self.assertEqual(len(provider.calls), 1)
 
 
+    def make_single_step_response_with_height(self, height):
+        action = self.make_handwritten_note()
+        action["parameters"]["height"] = height
+        # Add a positive-height second action to keep the note meaningful.
+        return json.dumps({
+            "steps": [{
+                "id": "step_1",
+                "teaching_events": [{
+                    "id": "event_1",
+                    "visual_actions": [
+                        action,
+                        self.make_circle("action_circle", 1),
+                    ],
+                }],
+            }]
+        })
+
+    def test_retries_invalid_action_dimensions_and_recovers(self):
+        provider = SequenceAIProvider([
+            self.make_single_step_response_with_height(0),
+            self.make_single_step_response_with_height(20),
+        ])
+
+        result = ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(
+            result["steps"][0]["visual_actions"][0]["parameters"]["height"],
+            20,
+        )
+        self.assertIn(
+            "height",
+            provider.calls[1]["messages"][1]["content"],
+        )
+
+    def test_fails_after_retry_with_invalid_action_dimensions(self):
+        invalid_response = self.make_single_step_response_with_height(0)
+        provider = SequenceAIProvider([invalid_response, invalid_response])
+
+        with self.assertRaisesRegex(
+            ActionGenerationError,
+            "failed after 2 attempts.*height",
+        ):
+            ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 2)
+
+
 
 if __name__ == "__main__":
     unittest.main()
