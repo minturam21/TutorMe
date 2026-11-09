@@ -101,22 +101,26 @@ class AIProvider:
         max_tokens: int = 8000,
         response_format: dict | None = None,
     ) -> str:
-        try:
-            if self.provider == "gemini":
-                system_instruction, contents = self._gemini_contents(messages)
-                config = self._gemini_config(temperature, max_tokens, response_format)
-                if system_instruction:
-                    config["system_instruction"] = system_instruction
+        if self.provider == "gemini":
+            system_instruction, contents = self._gemini_contents(messages)
+            config = self._gemini_config(temperature, max_tokens, response_format)
+            if system_instruction:
+                config["system_instruction"] = system_instruction
+
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=config,
+                )
+                return response.text or ""
+            except Exception as primary_error:
+                if self.fallback_client is None:
+                    raise RuntimeError(
+                        f"Gemini API request failed: {primary_error}"
+                    ) from primary_error
+
                 try:
-                    response = self.client.models.generate_content(
-                        model=self.model,
-                        contents=contents,
-                        config=config,
-                    )
-                    return response.text or ""
-                except Exception:
-                    if self.fallback_client is None:
-                        raise
                     fallback_response = self.fallback_client.chat.completions.create(
                         model=self.fallback_model,
                         messages=messages,
@@ -125,7 +129,13 @@ class AIProvider:
                         response_format=response_format,
                     )
                     return fallback_response.choices[0].message.content or ""
+                except Exception as fallback_error:
+                    raise RuntimeError(
+                        f"Gemini API request failed: {primary_error}; "
+                        f"Groq fallback failed: {fallback_error}"
+                    ) from fallback_error
 
+        try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -135,7 +145,7 @@ class AIProvider:
             )
             return response.choices[0].message.content or ""
         except Exception as error:
-            raise RuntimeError(f"{self.provider.title()} API request failed: {error}") from error
+            raise RuntimeError(f"Groq API request failed: {error}") from error
 
     def generate_stream(
         self,
@@ -143,28 +153,32 @@ class AIProvider:
         temperature: float = 0.6,
     ) -> Iterator[str]:
         """Yield text chunks for the existing /ask/stream endpoint."""
-        try:
-            if self.provider == "gemini":
-                system_instruction, contents = self._gemini_contents(messages)
-                config = {"temperature": temperature}
-                if system_instruction:
-                    config["system_instruction"] = system_instruction
-                yielded_content = False
+        if self.provider == "gemini":
+            system_instruction, contents = self._gemini_contents(messages)
+            config = {"temperature": temperature}
+            if system_instruction:
+                config["system_instruction"] = system_instruction
+
+            yielded_content = False
+            try:
+                stream = self.client.models.generate_content_stream(
+                    model=self.model,
+                    contents=contents,
+                    config=config,
+                )
+                for chunk in stream:
+                    if chunk.text:
+                        yielded_content = True
+                        yield chunk.text
+                return
+            except Exception as primary_error:
+                # Never restart with Groq after Gemini has sent partial output.
+                if self.fallback_client is None or yielded_content:
+                    raise RuntimeError(
+                        f"Gemini streaming request failed: {primary_error}"
+                    ) from primary_error
+
                 try:
-                    stream = self.client.models.generate_content_stream(
-                        model=self.model,
-                        contents=contents,
-                        config=config,
-                    )
-                    for chunk in stream:
-                        if chunk.text:
-                            yielded_content = True
-                            yield chunk.text
-                except Exception:
-                    # A stream can only fail over safely before any text has
-                    # reached the caller; otherwise a retry would duplicate it.
-                    if self.fallback_client is None or yielded_content:
-                        raise
                     fallback_stream = self.fallback_client.chat.completions.create(
                         model=self.fallback_model,
                         messages=messages,
@@ -175,16 +189,23 @@ class AIProvider:
                         content = chunk.choices[0].delta.content
                         if content:
                             yield content
-            else:
-                stream = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=temperature,
-                    stream=True,
-                )
-                for chunk in stream:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        yield content
+                except Exception as fallback_error:
+                    raise RuntimeError(
+                        f"Gemini streaming request failed: {primary_error}; "
+                        f"Groq fallback streaming failed: {fallback_error}"
+                    ) from fallback_error
+            return
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                stream=True,
+            )
+            for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
         except Exception as error:
-            raise RuntimeError(f"{self.provider.title()} streaming request failed: {error}") from error
+            raise RuntimeError(f"Groq streaming request failed: {error}") from error
