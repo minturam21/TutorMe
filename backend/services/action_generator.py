@@ -468,8 +468,11 @@ any step or event. Return JSON only.
                         and action["parameters"]["text"].strip()
                         for event_data in generated_events
                         if isinstance(event_data, dict)
-                        for action in event_data.get("visual_actions", [])
-                        if isinstance(event_data.get("visual_actions", []), list)
+                        for action in (
+                            event_data.get("visual_actions")
+                            if isinstance(event_data.get("visual_actions"), list)
+                            else []
+                        )
                     )
                     if not has_handwritten_note:
                         invalid_action_error = (
