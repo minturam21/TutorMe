@@ -156,7 +156,7 @@ class LessonPipelineTests(unittest.TestCase):
 
         self.assertEqual(len(lesson.steps), 3)
 
-        for step in lesson.steps:
+        for step_index, step in enumerate(lesson.steps):
             action_types = [
                 action.type
                 for action in step.visual_actions
@@ -168,14 +168,30 @@ class LessonPipelineTests(unittest.TestCase):
             self.assertEqual(len(step.visual_actions), 2)
             self.assertEqual(len(step.teaching_events), 2)
 
-            first_event_types = [
-                obj.type for obj in step.teaching_events[0].expected_scene.objects
-            ]
-            second_event_types = [
-                obj.type for obj in step.teaching_events[1].expected_scene.objects
-            ]
-            self.assertEqual(first_event_types, ["text"])
-            self.assertCountEqual(second_event_types, ["text", "circle"])
+            first_event_objects = step.teaching_events[0].expected_scene.objects
+            second_event_objects = step.teaching_events[1].expected_scene.objects
+
+            # The board persists across steps. The first event adds this
+            # step's note without removing earlier notes or diagrams.
+            self.assertEqual(
+                sum(obj.type == "text" for obj in first_event_objects),
+                step_index + 1,
+            )
+            self.assertEqual(
+                sum(obj.type == "circle" for obj in first_event_objects),
+                step_index,
+            )
+
+            # The second event adds this step's circle while preserving
+            # everything already visible from prior events and steps.
+            self.assertEqual(
+                sum(obj.type == "text" for obj in second_event_objects),
+                step_index + 1,
+            )
+            self.assertEqual(
+                sum(obj.type == "circle" for obj in second_event_objects),
+                step_index + 1,
+            )
 
             scene_types = [
                 scene_object.type
