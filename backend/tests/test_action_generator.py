@@ -218,6 +218,34 @@ class ActionGeneratorTests(unittest.TestCase):
             "step_1_circle",
         )
 
+    def test_retries_draw_arrow_missing_target_id_twice_then_recovers(self):
+        arrow = self.make_action(
+            "action_arrow", "draw_arrow", 1,
+            {"start_x": 300, "start_y": 200, "end_x": 500, "end_y": 200},
+            target_id="step_1_force_arrow",
+        )
+        invalid_arrow = dict(arrow)
+        invalid_arrow.pop("target_id")
+
+        def response(arrow_action):
+            return json.dumps({"steps": [{
+                "id": "step_1",
+                "teaching_events": [{
+                    "id": "event_1",
+                    "visual_actions": [self.make_handwritten_note(), arrow_action],
+                }],
+            }]})
+
+        provider = SequenceAIProvider([
+            response(invalid_arrow), response(invalid_arrow), response(arrow),
+        ])
+        result = ActionGenerator(provider).generate_actions(self.plan)
+
+        self.assertEqual(len(provider.calls), 3)
+        self.assertIn("draw_arrow requires a target_id", provider.calls[1]["messages"][1]["content"])
+        self.assertIn("top-level target_id", provider.calls[2]["messages"][1]["content"])
+        self.assertEqual(result["steps"][0]["visual_actions"][1]["target_id"], "step_1_force_arrow")
+
     def test_reject_empty_visual_actions(self):
         with self.assertRaises(ActionGenerationError):
             self.generate([])
@@ -397,11 +425,11 @@ class ActionGeneratorTests(unittest.TestCase):
                 self.make_generated_step("step_2", "event_2", "action_2"),
             ]
         })
-        provider = SequenceAIProvider([mismatched, mismatched])
+        provider = SequenceAIProvider([mismatched, mismatched, mismatched])
 
         with self.assertRaisesRegex(
             ActionGenerationError,
-            "failed after 2 attempts.*expected 'step_1'",
+            "failed after 3 attempts.*expected 'step_1'",
         ):
             ActionGenerator(provider).generate_actions(plan)
 
@@ -553,6 +581,7 @@ class ActionGeneratorTests(unittest.TestCase):
         provider = SequenceAIProvider([
             incomplete_response,
             incomplete_response,
+            incomplete_response,
         ])
 
         with self.assertRaisesRegex(
@@ -598,7 +627,7 @@ class ActionGeneratorTests(unittest.TestCase):
             "Groq API request failed: Error code: 400 "
             "json_validate_failed: Failed to generate JSON"
         )
-        provider = SequenceAIProvider([provider_error, provider_error])
+        provider = SequenceAIProvider([provider_error, provider_error, provider_error])
 
         with self.assertRaisesRegex(
             ActionGenerationError,
@@ -660,7 +689,7 @@ class ActionGeneratorTests(unittest.TestCase):
 
     def test_fails_after_retry_with_invalid_action_dimensions(self):
         invalid_response = self.make_single_step_response_with_height(0)
-        provider = SequenceAIProvider([invalid_response, invalid_response])
+        provider = SequenceAIProvider([invalid_response, invalid_response, invalid_response])
 
         with self.assertRaisesRegex(
             ActionGenerationError,
