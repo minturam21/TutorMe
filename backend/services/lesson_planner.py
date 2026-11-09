@@ -146,6 +146,12 @@ Create a complete teaching plan for this question.
                 "Plan must be a JSON object."
             )
 
+        # Practice questions are supplementary to the visual lesson. Some model
+        # responses omit them despite the prompt; the Lesson model already defaults
+        # this field to an empty list, so normalize omission instead of aborting the
+        # entire whiteboard generation.
+        plan.setdefault("practice_questions", [])
+
         required_fields = [
             "title",
             "subject",
