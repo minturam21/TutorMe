@@ -291,7 +291,7 @@ any step or event. Return JSON only.
             except json.JSONDecodeError as error:
                 raise ActionGenerationError("AI returned invalid JSON.") from error
             except Exception as error:
-                # Groq can reject a malformed model completion before returning
+                # A provider can reject a malformed structured completion before returning
                 # text when JSON mode is enabled. Treat only this output-format
                 # failure as recoverable; authentication, rate-limit, network,
                 # and other provider errors must fail immediately.
@@ -301,7 +301,7 @@ any step or event. Return JSON only.
                     or "Failed to generate JSON" in provider_error
                 ):
                     last_error = (
-                        "Groq rejected the previous completion because it was "
+                        "The provider rejected the previous completion because it was "
                         "not valid JSON. Regenerate the complete response as "
                         "strict JSON matching the required structure."
                     )
