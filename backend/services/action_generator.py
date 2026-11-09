@@ -249,49 +249,66 @@ Each object must contain:
 Before finishing, verify that the output step count equals {len(steps)} and that every original step ID appears exactly once.
 """
 
-        try:
-            response_text = self.ai_provider.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.2,
-                max_tokens=6000,
-                response_format={"type": "json_object"},
+        # Large lesson plans can exceed the model's practical structured-output
+        # reliability. Retry once when the response is valid JSON but omits steps.
+        # Never truncate, duplicate, or silently discard planned teaching content.
+        max_attempts = 2
+        last_error = None
+        result = None
+        generated_steps = None
+
+        for attempt in range(max_attempts):
+            retry_prompt = user_prompt
+            if last_error is not None:
+                retry_prompt += f"""
+
+Your previous JSON response was rejected:
+{last_error}
+
+Regenerate the COMPLETE visual-action JSON for the original plan.
+The plan contains exactly {len(steps)} teaching steps. Your previous response
+contained the wrong number of steps. Return exactly {len(steps)} step objects,
+preserving every original step ID and every teaching event ID in order.
+Do not omit, merge, split, or summarize any step or event. Return JSON only.
+"""
+            try:
+                response_text = self.ai_provider.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": retry_prompt},
+                    ],
+                    temperature=0.2,
+                    max_tokens=6000,
+                    response_format={"type": "json_object"},
+                )
+                result = json.loads(response_text)
+            except json.JSONDecodeError as error:
+                raise ActionGenerationError("AI returned invalid JSON.") from error
+            except Exception as error:
+                raise ActionGenerationError(
+                    f"Action generation failed: {error}"
+                ) from error
+
+            if not isinstance(result, dict):
+                raise ActionGenerationError("AI response must be a JSON object.")
+
+            generated_steps = result.get("steps")
+            if not isinstance(generated_steps, list):
+                raise ActionGenerationError("AI response must contain a steps list.")
+
+            if any(not isinstance(step, dict) for step in generated_steps):
+                raise ActionGenerationError("Generated teaching steps must be objects.")
+
+            if len(generated_steps) == len(steps):
+                break
+
+            last_error = (
+                f"Generated {len(generated_steps)} teaching steps, "
+                f"but the original plan contains {len(steps)}."
             )
-
-            result = json.loads(response_text)
-
-        except json.JSONDecodeError as error:
+        else:
             raise ActionGenerationError(
-                "AI returned invalid JSON."
-            ) from error
-
-        except Exception as error:
-            raise ActionGenerationError(
-                f"Action generation failed: {error}"
-            ) from error
-
-        if not isinstance(result, dict):
-            raise ActionGenerationError(
-                "AI response must be a JSON object."
-            )
-
-        generated_steps = result.get("steps")
-
-        if not isinstance(generated_steps, list):
-            raise ActionGenerationError(
-                "AI response must contain a steps list."
-            )
-
-        if any(not isinstance(step, dict) for step in generated_steps):
-            raise ActionGenerationError(
-                "Generated teaching steps must be objects."
-            )
-
-        if len(generated_steps) != len(steps):
-            raise ActionGenerationError(
-                f"Generated {len(generated_steps)} teaching steps, but the original plan contains {len(steps)}."
+                f"Action generation failed after {max_attempts} attempts: {last_error}"
             )
 
         # IDs are references owned by the original plan. The AI may reproduce
