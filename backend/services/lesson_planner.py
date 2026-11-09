@@ -199,7 +199,7 @@ Create a complete teaching plan for this question.
 
         if not 3 <= len(steps) <= 6:
             raise LessonPlanningError(
-                "The lesson must contain between 3 and 8 steps."
+                f"The lesson must contain between 3 and 6 steps; received {len(steps)}."
             )
 
         step_ids = set()
