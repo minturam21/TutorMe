@@ -10,10 +10,16 @@ interface TegakiTextRendererProps {
 }
 
 type FontBundle = typeof caveat | typeof notoSansMath;
-type FontKind = "caveat" | "math" | "unsupported";
+type FontKind =
+  | "caveat"
+  | "math"
+  | "superscript"
+  | "subscript"
+  | "unsupported";
 
 interface TextRun {
   text: string;
+  renderText: string;
   font: FontBundle;
   kind: FontKind;
   duration: number;
@@ -22,6 +28,35 @@ interface TextRun {
 const handwritingPlugins = [variationPlugin({ amount: 1 })];
 const caveatCharacters = new Set(Object.keys(caveat.glyphData));
 const mathCharacters = new Set(Object.keys(notoSansMath.glyphData));
+
+// Unicode script digits reuse Caveat's existing handwritten digit glyphs.
+const superscriptDigits: Record<string, string> = {
+  "⁰": "0",
+  "¹": "1",
+  "²": "2",
+  "³": "3",
+  "⁴": "4",
+  "⁵": "5",
+  "⁶": "6",
+  "⁷": "7",
+  "⁸": "8",
+  "⁹": "9",
+};
+
+const subscriptDigits: Record<string, string> = {
+  "₀": "0",
+  "₁": "1",
+  "₂": "2",
+  "₃": "3",
+  "₄": "4",
+  "₅": "5",
+  "₆": "6",
+  "₇": "7",
+  "₈": "8",
+  "₉": "9",
+};
+
+const SCRIPT_GLYPH_SCALE = 0.65;
 
 function getNumber(
   properties: Record<string, unknown>,
@@ -57,6 +92,9 @@ function getSeed(id: string): number {
 }
 
 function getFontKind(character: string): FontKind {
+  if (character in superscriptDigits) return "superscript";
+  if (character in subscriptDigits) return "subscript";
+
   // Whitespace has layout but no visible glyph stroke; keep it with Latin runs.
   if (/^\s+$/u.test(character) || caveatCharacters.has(character)) {
     return "caveat";
@@ -69,17 +107,23 @@ function getFontKind(character: string): FontKind {
   return "unsupported";
 }
 
+function getRenderableCharacter(character: string): string {
+  return superscriptDigits[character] ?? subscriptDigits[character] ?? character;
+}
+
 function splitTextIntoRuns(text: string): TextRun[] {
-  const runs: Array<{ text: string; kind: FontKind }> = [];
+  const runs: Array<{ text: string; renderText: string; kind: FontKind }> = [];
 
   for (const character of text) {
     const kind = getFontKind(character);
+    const renderCharacter = getRenderableCharacter(character);
     const lastRun = runs[runs.length - 1];
 
     if (lastRun?.kind === kind) {
       lastRun.text += character;
+      lastRun.renderText += renderCharacter;
     } else {
-      runs.push({ text: character, kind });
+      runs.push({ text: character, renderText: renderCharacter, kind });
     }
   }
 
@@ -88,7 +132,7 @@ function splitTextIntoRuns(text: string): TextRun[] {
     const duration =
       run.kind === "unsupported"
         ? 0
-        : computeTimeline(run.text, font).totalDuration;
+        : computeTimeline(run.renderText, font).totalDuration;
 
     return { ...run, font, duration };
   });
@@ -160,7 +204,12 @@ export default function TegakiTextRenderer({
         style={{
           display: "inline-block",
           whiteSpace: "pre-wrap",
-          verticalAlign: "baseline",
+          verticalAlign:
+            run.kind === "superscript"
+              ? "super"
+              : run.kind === "subscript"
+                ? "sub"
+                : "baseline",
         }}
       >
         <TegakiRenderer
@@ -176,14 +225,17 @@ export default function TegakiTextRenderer({
             display: "inline-block",
             width: "max-content",
             maxWidth: "100%",
-            fontSize,
+            fontSize:
+              run.kind === "superscript" || run.kind === "subscript"
+                ? fontSize * SCRIPT_GLYPH_SCALE
+                : fontSize,
             lineHeight: 1.4,
             color,
             whiteSpace: "pre-wrap",
             margin: 0,
           }}
         >
-          {run.text}
+          {run.renderText}
         </TegakiRenderer>
       </span>
     );
