@@ -23,6 +23,11 @@ const samples: SceneObject[] = [
     type: "text",
     properties: { text: "Mixed: F = ma; π ≈ 3.14; √x", x: 60, y: 450, width: 1800, height: 120, font_size: 54, color: "#222222" },
   },
+  {
+    id: "hybrid-script-digits",
+    type: "text",
+    properties: { text: "Powers and indices: x² + y³; H₂O; CO₂; a₁ + a₂", x: 60, y: 570, width: 1800, height: 120, font_size: 54, color: "#222222" },
+  },
 ];
 
 export default function TegakiTest() {
@@ -53,7 +58,7 @@ export default function TegakiTest() {
     <main style={{ padding: 24, color: "#222", background: "#f3f0e8", minHeight: "100vh" }}>
       <h2> TutorMe — Hybrid Tegaki Renderer Test</h2>
       <p>Latin characters use Caveat. Supported Greek and mathematical glyphs use the custom Noto Sans Math bundle.</p>
-      <svg viewBox="0 0 2000 560" width="100%" style={{ display: "block", background: "#fffdf7", border: "1px solid #ccc", borderRadius: 12 }}>
+      <svg viewBox="0 0 2000 700" width="100%" style={{ display: "block", background: "#fffdf7", border: "1px solid #ccc", borderRadius: 12 }}>
         {samples.map((object) => (
           <TegakiTextRenderer key={object.id} object={object} progress={progress} />
         ))}
