@@ -2,6 +2,18 @@ import { TegakiRenderer } from "tegaki/react";
 import { computeTimeline, variationPlugin } from "tegaki";
 import caveat from "tegaki/fonts/caveat";
 import notoSansMath from "../../../assets/tegaki/noto-sans-math/bundle";
+import playpenSans from "../../../assets/tegaki/playpen-sans/bundle";
+import { customMathGlyphData } from "../../../assets/tegaki/customMathGlyphs";
+
+const customMathFont = {
+  ...playpenSans,
+  glyphData: {
+    ...playpenSans.glyphData,
+    ...customMathGlyphData,
+  },
+  // Disable Playpen's old glyph-ID map so Tegaki uses our custom character paths.
+  glyphDataById: undefined,
+} as unknown as typeof playpenSans;
 import type { SceneObject } from "../../../types/visualAction";
 
 interface TegakiTextRendererProps {
@@ -9,9 +21,16 @@ interface TegakiTextRendererProps {
   progress: number;
 }
 
-type FontBundle = typeof caveat | typeof notoSansMath;
+type FontBundle =
+  | typeof caveat
+  | typeof notoSansMath
+  | typeof playpenSans
+  | typeof customMathFont;
+
 type FontKind =
   | "caveat"
+  | "playpen"
+  | "custom-math"
   | "math"
   | "superscript"
   | "subscript"
@@ -28,6 +47,8 @@ interface TextRun {
 const handwritingPlugins = [variationPlugin({ amount: 1 })];
 const caveatCharacters = new Set(Object.keys(caveat.glyphData));
 const mathCharacters = new Set(Object.keys(notoSansMath.glyphData));
+const playpenCharacters = new Set(Object.keys(playpenSans.glyphData));
+const customMathCharacters = new Set(Object.keys(customMathGlyphData));
 
 // Unicode script digits reuse Caveat's existing handwritten digit glyphs.
 const superscriptDigits: Record<string, string> = {
@@ -100,6 +121,10 @@ function getFontKind(character: string): FontKind {
     return "caveat";
   }
 
+  if (playpenCharacters.has(character)) return "playpen";
+
+  if (customMathCharacters.has(character)) return "custom-math";
+
   if (mathCharacters.has(character)) {
     return "math";
   }
@@ -128,7 +153,14 @@ function splitTextIntoRuns(text: string): TextRun[] {
   }
 
   return runs.map((run) => {
-    const font = run.kind === "math" ? notoSansMath : caveat;
+    const font =
+      run.kind === "playpen"
+        ? playpenSans
+        : run.kind === "custom-math"
+          ? customMathFont
+          : run.kind === "math"
+            ? notoSansMath
+            : caveat;
     const duration =
       run.kind === "unsupported"
         ? 0
@@ -266,3 +298,6 @@ export default function TegakiTextRenderer({
     </g>
   );
 }
+
+
+

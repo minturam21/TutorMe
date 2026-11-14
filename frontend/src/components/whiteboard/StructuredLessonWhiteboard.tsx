@@ -97,6 +97,7 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
   const executorRef = useRef<ActionExecutor | null>(null);
   const runIdRef = useRef(0);
   const cursorRef = useRef(0);
+  const canvasViewportRef = useRef<HTMLDivElement | null>(null);
 
   if (!managerRef.current) managerRef.current = new SceneManager(lesson.initial_scene);
   if (!executorRef.current) executorRef.current = new ActionExecutor(managerRef.current);
@@ -294,7 +295,7 @@ export default function StructuredLessonWhiteboard({ lesson }: StructuredLessonW
           <HandwrittenTextLine id={`lesson-${lesson.id}-title`} text={lesson.title} fontSize={48} minHeight={100} />
         </div>
       </div>
-      <div className="structured-whiteboard-canvas">
+      <div className="structured-whiteboard-canvas" ref={canvasViewportRef}>
         <WhiteboardCanvas scene={scene} activeDrawing={activeDrawing} viewBox={viewBox} />
       </div>      <div className="structured-whiteboard-controls">
         {isPlaying ? <button onClick={pauseLesson}>Pause</button>

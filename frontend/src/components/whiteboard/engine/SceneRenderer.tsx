@@ -45,7 +45,7 @@ export default function SceneRenderer({
     <svg
       viewBox={viewBox ? `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}` : `0 0 ${width} ${height}` }
       width="100%"
-      height="100%"
+
       preserveAspectRatio="xMidYMid meet"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
@@ -72,7 +72,7 @@ export default function SceneRenderer({
           : 1;
 
         return (
-          <g key={object.id}>
+          <g key={object.id} data-object-id={object.id}>
             {object.type === "text" || object.type === "equation" ? (
               <TegakiTextRenderer
                 object={toHandwrittenTextObject(object)}

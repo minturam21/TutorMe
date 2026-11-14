@@ -1541,3 +1541,24 @@ button.send-button:disabled {
     height: clamp(220px, 34vh, 340px);
   }
 }
+
+/* Structured lesson: fixed viewport with internally scrollable drawing */
+.structured-whiteboard > .structured-whiteboard-canvas {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.structured-whiteboard-canvas > .whiteboard-canvas {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.structured-whiteboard-canvas .whiteboard-canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
