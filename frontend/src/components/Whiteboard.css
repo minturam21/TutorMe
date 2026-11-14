@@ -1252,3 +1252,21 @@
   outline: 2px solid #7946c7;
   outline-offset: 3px;
 }
+
+/* Structured whiteboard: use the available workspace and give diagrams
+   enough vertical room to remain readable on desktop and mobile. */
+.conversation.whiteboard-view > .structured-whiteboard {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto 20px;
+}
+
+.structured-whiteboard-canvas {
+  height: clamp(420px, 62vh, 760px);
+}
+
+@media (max-width: 700px) {
+  .structured-whiteboard-canvas {
+    height: clamp(320px, 52vh, 520px);
+  }
+}

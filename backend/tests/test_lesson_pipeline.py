@@ -33,6 +33,20 @@ class LessonPipelineTests(unittest.TestCase):
                     "equations": [],
                     "visual_goal": "Introduce the concept",
                     "visual_requirements": ["Show a diagram"],
+                    "teaching_events": [
+                        {
+                            "id": f"event_{i}_1",
+                            "explanation": "Introduce the idea of position.",
+                            "visual_goal": "Write the word position.",
+                            "visual_requirements": ["Handwrite the word Position"],
+                        },
+                        {
+                            "id": f"event_{i}_2",
+                            "explanation": "Explain that position changes over time.",
+                            "visual_goal": "Show a moving object.",
+                            "visual_requirements": ["Draw an object and its changed position"],
+                        },
+                    ],
                 }
                 for i in range(1, 4)
             ],
@@ -59,34 +73,44 @@ class LessonPipelineTests(unittest.TestCase):
             "steps": [
                 {
                     "id": f"step_{i}",
-                    "visual_actions": [
+                    "teaching_events": [
                         {
-                            "id": f"note_{i}",
-                            "type": "write_text",
-                            "target_id": f"step_{i}_note",
-                            "parameters": {
-                                "text": "Motion is a change in position",
-                                "x": 100,
-                                "y": 100,
-                            },
-                            "duration": 2,
-                            "easing": "linear",
-                            "order": 0,
+                            "id": f"event_{i}_1",
+                            "visual_actions": [
+                                {
+                                    "id": f"note_{i}",
+                                    "type": "write_text",
+                                    "target_id": f"step_{i}_note",
+                                    "parameters": {
+                                        "text": "Motion is a change in position",
+                                        "x": 100,
+                                        "y": 100,
+                                    },
+                                    "duration": 2,
+                                    "easing": "linear",
+                                    "order": 0,
+                                }
+                            ],
                         },
                         {
-                            "id": f"diagram_{i}",
-                            "type": "draw_shape",
-                            "target_id": f"step_{i}_circle",
-                            "parameters": {
-                                "shape": "circle",
-                                "x": 300,
-                                "y": 200,
-                                "width": 60,
-                                "height": 60,
-                            },
-                            "duration": 1,
-                            "easing": "linear",
-                            "order": 1,
+                            "id": f"event_{i}_2",
+                            "visual_actions": [
+                                {
+                                    "id": f"diagram_{i}",
+                                    "type": "draw_shape",
+                                    "target_id": f"step_{i}_circle",
+                                    "parameters": {
+                                        "shape": "circle",
+                                        "x": 300,
+                                        "y": 200,
+                                        "width": 60,
+                                        "height": 60,
+                                    },
+                                    "duration": 1,
+                                    "easing": "linear",
+                                    "order": 0,
+                                }
+                            ],
                         },
                     ],
                 }
@@ -132,7 +156,7 @@ class LessonPipelineTests(unittest.TestCase):
 
         self.assertEqual(len(lesson.steps), 3)
 
-        for step in lesson.steps:
+        for step_index, step in enumerate(lesson.steps):
             action_types = [
                 action.type
                 for action in step.visual_actions
@@ -142,6 +166,32 @@ class LessonPipelineTests(unittest.TestCase):
             self.assertIn("draw_shape", action_types)
 
             self.assertEqual(len(step.visual_actions), 2)
+            self.assertEqual(len(step.teaching_events), 2)
+
+            first_event_objects = step.teaching_events[0].expected_scene.objects
+            second_event_objects = step.teaching_events[1].expected_scene.objects
+
+            # The board persists across steps. The first event adds this
+            # step's note without removing earlier notes or diagrams.
+            self.assertEqual(
+                sum(obj.type == "text" for obj in first_event_objects),
+                step_index + 1,
+            )
+            self.assertEqual(
+                sum(obj.type == "circle" for obj in first_event_objects),
+                step_index,
+            )
+
+            # The second event adds this step's circle while preserving
+            # everything already visible from prior events and steps.
+            self.assertEqual(
+                sum(obj.type == "text" for obj in second_event_objects),
+                step_index + 1,
+            )
+            self.assertEqual(
+                sum(obj.type == "circle" for obj in second_event_objects),
+                step_index + 1,
+            )
 
             scene_types = [
                 scene_object.type

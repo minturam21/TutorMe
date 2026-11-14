@@ -1530,3 +1530,35 @@ button.send-button:disabled {
     padding: 15px;
   }
 }
+
+/* Keep the structured lesson player within the space above the composer. */
+.structured-whiteboard-canvas {
+  height: clamp(260px, 40vh, 420px);
+}
+
+@media (max-width: 700px) {
+  .structured-whiteboard-canvas {
+    height: clamp(220px, 34vh, 340px);
+  }
+}
+
+/* Structured lesson: fixed viewport with internally scrollable drawing */
+.structured-whiteboard > .structured-whiteboard-canvas {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.structured-whiteboard-canvas > .whiteboard-canvas {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.structured-whiteboard-canvas .whiteboard-canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+

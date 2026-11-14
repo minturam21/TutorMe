@@ -1,4 +1,3 @@
-
 import json
 
 from services.ai_provider import AIProvider
@@ -12,6 +11,8 @@ class LessonPlanner:
     """
     Converts a student's question into a structured teaching plan.
     """
+
+    MAX_GENERATION_ATTEMPTS = 2
 
     def __init__(self, ai_provider: AIProvider | None = None):
         self.ai_provider = ai_provider or AIProvider()
@@ -71,6 +72,16 @@ Return valid JSON only, using this structure:
             "visual_goal": "What the whiteboard should demonstrate",
             "visual_requirements": [
                 "Describe the required visual elements"
+            ],
+            "teaching_events": [
+                {
+                    "id": "event_1",
+                    "explanation": "One short, ordered explanation segment.",
+                    "visual_goal": "What should appear while this segment is explained.",
+                    "visual_requirements": [
+                        "The exact handwritten text, equation part, or visual change for this segment"
+                    ]
+                }
             ]
         }
     ],
@@ -83,13 +94,14 @@ Return valid JSON only, using this structure:
     ]
 }
 
-Return between 3 and 8 teaching steps.
+Each teaching step must contain 2 to 4 ordered teaching_events. Each event must explain one small idea only; do not put the entire step explanation into one event. Events must follow the exact teaching order. Associate each event with only the text, equation part, or visual change that belongs to that explanation segment. Do not reveal later concepts in earlier events. The event explanations, in order, must cover the full teaching step without duplicating it.
+Return between 3 and 6 teaching steps. This limit is mandatory: never return fewer than 3 or more than 6 steps. For a narrow question, still teach it in at least 3 distinct stages: (1) introduce the required idea or prerequisite, (2) explain the central principle with its visual demonstration, and (3) apply it in a worked example or explain its consequence. Do not combine these stages into one step.
 Return between 3 and 5 practice questions.
 Use an empty array when equations are not relevant.
 Do not include Markdown or text outside the JSON.
 """
 
-        user_prompt = f"""
+        base_user_prompt = f"""
 Student question: {question}
 
 Requested subject: {subject or "Identify the appropriate subject"}
@@ -99,32 +111,67 @@ Requested difficulty: {difficulty}
 Create a complete teaching plan for this question.
 """
 
-        try:
-            response_text = self.ai_provider.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.3,
-                max_tokens=6000,
-                response_format={"type": "json_object"},
-            )
+        last_error = None
 
-            plan = json.loads(response_text)
+        for attempt in range(self.MAX_GENERATION_ATTEMPTS):
+            user_prompt = base_user_prompt
 
-        except json.JSONDecodeError as error:
-            raise LessonPlanningError(
-                "AI returned invalid JSON."
-            ) from error
+            if last_error is not None:
+                user_prompt += f"""
 
-        except Exception as error:
-            raise LessonPlanningError(
-                f"Lesson planning failed: {error}"
-            ) from error
+Your previous response was rejected by the application validator:
+{last_error}
 
-        self._validate_plan(plan)
+Regenerate the complete lesson plan. Correct the validation error.
+The previous response contained an invalid number of teaching steps; this is not acceptable.
+Return 3 to 5 distinct, sequential teaching steps as the preferred target. The validator allows between 3 and 6 steps, but never return more than 6 (at most 6). For a narrow topic, split the explanation into foundation, core principle, and worked application or consequence. Each step must have its own teaching goal and 2 to 4 teaching events. Do not put the entire lesson into one step.
+Do not omit required teaching content or return a partial plan.
+Return the complete corrected JSON only.
+"""
 
-        return plan
+            try:
+                response_text = self.ai_provider.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.3,
+                    max_tokens=8000,
+                    response_format={"type": "json_object"},
+                )
+                plan = json.loads(response_text)
+                self._validate_plan(plan)
+                return plan
+
+            except json.JSONDecodeError as error:
+                last_error = LessonPlanningError("AI returned invalid JSON.")
+
+            except LessonPlanningError as error:
+                last_error = error
+
+            except Exception as error:
+                # A provider may reject a malformed structured completion before returning
+                # text when JSON mode is enabled. Retry only this output-format
+                # failure; unrelated provider errors must fail immediately.
+                provider_error = str(error)
+                if (
+                    "json_validate_failed" in provider_error
+                    or "Failed to generate JSON" in provider_error
+                ):
+                    last_error = LessonPlanningError(
+                        "The provider rejected the previous completion because it was "
+                        "not valid JSON. Regenerate the complete lesson plan "
+                        "as strict JSON matching the required structure."
+                    )
+                    continue
+                raise LessonPlanningError(
+                    f"Lesson planning failed: {error}"
+                ) from error
+
+        raise LessonPlanningError(
+            f"Lesson planning failed after {self.MAX_GENERATION_ATTEMPTS} attempts: "
+            f"{last_error}"
+        ) from last_error
 
     @staticmethod
     def _validate_plan(plan: dict) -> None:
@@ -134,6 +181,12 @@ Create a complete teaching plan for this question.
             raise LessonPlanningError(
                 "Plan must be a JSON object."
             )
+
+        # Practice questions are supplementary to the visual lesson. Some model
+        # responses omit them despite the prompt; the Lesson model already defaults
+        # this field to an empty list, so normalize omission instead of aborting the
+        # entire whiteboard generation.
+        plan.setdefault("practice_questions", [])
 
         required_fields = [
             "title",
@@ -180,9 +233,9 @@ Create a complete teaching plan for this question.
                 "Steps must be a list."
             )
 
-        if not 3 <= len(steps) <= 8:
+        if not 3 <= len(steps) <= 6:
             raise LessonPlanningError(
-                "The lesson must contain between 3 and 8 steps."
+                f"The lesson must contain between 3 and 6 steps; received {len(steps)}."
             )
 
         step_ids = set()
@@ -225,6 +278,39 @@ Create a complete teaching plan for this question.
 
             step_ids.add(step["id"])
 
+            events = step.get("teaching_events")
+            if not isinstance(events, list) or not 2 <= len(events) <= 4:
+                raise LessonPlanningError(
+                    "Every teaching step must contain between 2 and 4 teaching events."
+                )
+
+            event_ids = set()
+            for event in events:
+                if not isinstance(event, dict):
+                    raise LessonPlanningError("Every teaching event must be an object.")
+
+                for field in ["id", "explanation", "visual_goal"]:
+                    if not isinstance(event.get(field), str) or not event[field].strip():
+                        raise LessonPlanningError(
+                            f"Every teaching event needs a non-empty {field}."
+                        )
+
+                if event["id"] in event_ids:
+                    raise LessonPlanningError(
+                        f"Duplicate teaching event ID: {event['id']}"
+                    )
+                event_ids.add(event["id"])
+
+                requirements = event.get("visual_requirements")
+                if not isinstance(requirements, list) or not requirements:
+                    raise LessonPlanningError(
+                        "Every teaching event needs visual_requirements."
+                    )
+                if any(not isinstance(item, str) or not item.strip() for item in requirements):
+                    raise LessonPlanningError(
+                        "Every event visual requirement must be a non-empty string."
+                    )
+
             for field in step_list_fields:
 
                 if field not in step:
@@ -253,9 +339,9 @@ Create a complete teaching plan for this question.
                 "Practice questions must be a list."
             )
 
-        if not 3 <= len(questions) <= 5:
+        if not 0 <= len(questions) <= 5:
             raise LessonPlanningError(
-                "The lesson must contain between 3 and 5 practice questions."
+                "The lesson may contain at most 5 practice questions."
             )
 
         for item in questions:

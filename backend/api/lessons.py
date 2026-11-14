@@ -1,6 +1,7 @@
 
 import logging
 import sqlite3
+import time
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
@@ -48,8 +49,13 @@ router = APIRouter(
 )
 def generate_lesson(request: LessonGenerationRequest):
 
+    total_started = time.perf_counter()
+
     try:
         # Step 1: Generate teaching plan
+        logger.info("Lesson generation stage started: planning")
+        stage_started = time.perf_counter()
+
         planner = LessonPlanner()
 
         plan = planner.create_plan(
@@ -58,22 +64,55 @@ def generate_lesson(request: LessonGenerationRequest):
             difficulty=request.difficulty,
         )
 
+        logger.info(
+            "Lesson generation timing: planning=%.2fs",
+            time.perf_counter() - stage_started,
+        )
+
         # Step 2: Generate visual actions
+        logger.info("Lesson generation stage started: action_generation")
+        stage_started = time.perf_counter()
+
         action_generator = ActionGenerator()
 
         plan_with_actions = action_generator.generate_actions(
             plan
         )
 
+        logger.info(
+            "Lesson generation timing: action_generation=%.2fs",
+            time.perf_counter() - stage_started,
+        )
+
         # Step 3: Compile and validate lesson
+        logger.info("Lesson generation stage started: compilation")
+        stage_started = time.perf_counter()
+
         compiler = LessonCompiler()
 
         lesson = compiler.compile(plan_with_actions)
 
+        logger.info(
+            "Lesson generation timing: compilation=%.2fs",
+            time.perf_counter() - stage_started,
+        )
+
         # Step 4: Save validated lesson
+        logger.info("Lesson generation stage started: database_save")
+        stage_started = time.perf_counter()
+
         database.save_lesson(
             lesson,
             conversation_id=request.conversation_id,
+        )
+
+        logger.info(
+            "Lesson generation timing: database_save=%.2fs",
+            time.perf_counter() - stage_started,
+        )
+        logger.info(
+            "Lesson generation timing: total=%.2fs",
+            time.perf_counter() - total_started,
         )
 
         # Step 5: Return completed lesson
@@ -88,12 +127,24 @@ def generate_lesson(request: LessonGenerationRequest):
         ActionGenerationError,
     ) as error:
 
+        logger.warning(
+            "Lesson generation failed after %.2fs: %s",
+            time.perf_counter() - total_started,
+            error,
+        )
+
         raise HTTPException(
             status_code=502,
             detail=f"AI generation failed: {error}",
         ) from error
 
     except LessonCompilationError as error:
+
+        logger.warning(
+            "Lesson compilation failed after %.2fs: %s",
+            time.perf_counter() - total_started,
+            error,
+        )
 
         raise HTTPException(
             status_code=422,

@@ -8,18 +8,21 @@ interface WhiteboardCanvasProps {
     objectId: string;
     progress: number;
   } | null;
+  viewBox?: { x: number; y: number; width: number; height: number };
 }
 
 export default function WhiteboardCanvas({
   scene,
   activeDrawing = null,
+  viewBox = { x: 0, y: 0, width: 2000, height: 1400 },
 }: WhiteboardCanvasProps) {
   return (
     <div className="whiteboard-canvas">
       <SceneRenderer
         scene={scene}
-        width={2000}
-        height={1400}
+        width={viewBox.width}
+        height={viewBox.height}
+        viewBox={viewBox}
         activeDrawing={activeDrawing}
       />
     </div>

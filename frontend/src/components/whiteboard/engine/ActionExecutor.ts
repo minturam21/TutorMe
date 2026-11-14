@@ -24,6 +24,10 @@ export interface ActionExecutionOptions {
   ) => void;
 
   onError?: (error: Error, action: VisualAction) => void;
+  /** Resume the first action from this normalized progress value. */
+  initialProgress?: number;
+  /** The first action is already present in the reconstructed scene. */
+  firstActionAlreadyApplied?: boolean;
 }
 
 export class ActionExecutor {
@@ -32,6 +36,8 @@ export class ActionExecutor {
 
   private cancelled = false;
   private executionId = 0;
+  private sequencePaused = false;
+  private resumeSequence: (() => void) | null = null;
 
   constructor(sceneManager: SceneManager) {
     this.sceneManager = sceneManager;
@@ -41,7 +47,9 @@ export class ActionExecutor {
   cancel(): void {
     this.cancelled = true;
     this.executionId++;
-
+    this.sequencePaused = false;
+    this.resumeSequence?.();
+    this.resumeSequence = null;
     this.animationEngine.cancel();
   }
 
@@ -52,11 +60,23 @@ export class ActionExecutor {
   }
 
   pause(): void {
+    this.sequencePaused = true;
     this.animationEngine.pause();
   }
 
   resume(): void {
+    this.sequencePaused = false;
     this.animationEngine.resume();
+    this.resumeSequence?.();
+    this.resumeSequence = null;
+  }
+
+  private async waitWhilePaused(executionId: number): Promise<void> {
+    while (this.sequencePaused && !this.cancelled && executionId === this.executionId) {
+      await new Promise<void>((resolve) => {
+        this.resumeSequence = resolve;
+      });
+    }
   }
 
   isRunning(): boolean {
@@ -76,10 +96,10 @@ export class ActionExecutor {
       throw new Error("Playback speed must be greater than zero.");
     }
 
-    // Stop any previous execution before starting another.
-    this.cancel();
-
+    // Start a new sequence without clearing a lesson-wide pause request.
+    // A caller starting a fresh lesson must call cancel() explicitly first.
     this.cancelled = false;
+    this.executionId++;
 
     const currentExecutionId = this.executionId;
 
@@ -88,6 +108,8 @@ export class ActionExecutor {
     );
 
     for (let index = 0; index < orderedActions.length; index++) {
+      await this.waitWhilePaused(currentExecutionId);
+
       if (
         this.cancelled ||
         currentExecutionId !== this.executionId
@@ -102,7 +124,10 @@ export class ActionExecutor {
 
         // Apply the scene change first.
         // DrawingRenderer will use progress to reveal it.
-        this.sceneManager.applyAction(action);
+        const initialProgress = index === 0 ? options.initialProgress ?? 0 : 0;
+        if (!(index === 0 && options.firstActionAlreadyApplied)) {
+          this.sceneManager.applyAction(action);
+        }
 
         const durationMs =
           (action.duration * 1000) / playbackSpeed;
@@ -126,7 +151,8 @@ export class ActionExecutor {
               progress
             );
           },
-          easing
+          easing,
+          initialProgress
         );
 
         if (

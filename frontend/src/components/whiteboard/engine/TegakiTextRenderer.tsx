@@ -1,6 +1,19 @@
 import { TegakiRenderer } from "tegaki/react";
+import { computeTimeline, variationPlugin } from "tegaki";
 import caveat from "tegaki/fonts/caveat";
-import { variationPlugin } from "tegaki";
+import notoSansMath from "../../../assets/tegaki/noto-sans-math/bundle";
+import playpenSans from "../../../assets/tegaki/playpen-sans/bundle";
+import { customMathGlyphData } from "../../../assets/tegaki/customMathGlyphs";
+
+const customMathFont = {
+  ...playpenSans,
+  glyphData: {
+    ...playpenSans.glyphData,
+    ...customMathGlyphData,
+  },
+  // Disable Playpen's old glyph-ID map so Tegaki uses our custom character paths.
+  glyphDataById: undefined,
+} as unknown as typeof playpenSans;
 import type { SceneObject } from "../../../types/visualAction";
 
 interface TegakiTextRendererProps {
@@ -8,7 +21,63 @@ interface TegakiTextRendererProps {
   progress: number;
 }
 
+type FontBundle =
+  | typeof caveat
+  | typeof notoSansMath
+  | typeof playpenSans
+  | typeof customMathFont;
+
+type FontKind =
+  | "caveat"
+  | "playpen"
+  | "custom-math"
+  | "math"
+  | "superscript"
+  | "subscript"
+  | "unsupported";
+
+interface TextRun {
+  text: string;
+  renderText: string;
+  font: FontBundle;
+  kind: FontKind;
+  duration: number;
+}
+
 const handwritingPlugins = [variationPlugin({ amount: 1 })];
+const caveatCharacters = new Set(Object.keys(caveat.glyphData));
+const mathCharacters = new Set(Object.keys(notoSansMath.glyphData));
+const playpenCharacters = new Set(Object.keys(playpenSans.glyphData));
+const customMathCharacters = new Set(Object.keys(customMathGlyphData));
+
+// Unicode script digits reuse Caveat's existing handwritten digit glyphs.
+const superscriptDigits: Record<string, string> = {
+  "⁰": "0",
+  "¹": "1",
+  "²": "2",
+  "³": "3",
+  "⁴": "4",
+  "⁵": "5",
+  "⁶": "6",
+  "⁷": "7",
+  "⁸": "8",
+  "⁹": "9",
+};
+
+const subscriptDigits: Record<string, string> = {
+  "₀": "0",
+  "₁": "1",
+  "₂": "2",
+  "₃": "3",
+  "₄": "4",
+  "₅": "5",
+  "₆": "6",
+  "₇": "7",
+  "₈": "8",
+  "₉": "9",
+};
+
+const SCRIPT_GLYPH_SCALE = 0.65;
 
 function getNumber(
   properties: Record<string, unknown>,
@@ -43,6 +112,64 @@ function getSeed(id: string): number {
   return seed;
 }
 
+function getFontKind(character: string): FontKind {
+  if (character in superscriptDigits) return "superscript";
+  if (character in subscriptDigits) return "subscript";
+
+  // Whitespace has layout but no visible glyph stroke; keep it with Latin runs.
+  if (/^\s+$/u.test(character) || caveatCharacters.has(character)) {
+    return "caveat";
+  }
+
+  if (playpenCharacters.has(character)) return "playpen";
+
+  if (customMathCharacters.has(character)) return "custom-math";
+
+  if (mathCharacters.has(character)) {
+    return "math";
+  }
+
+  return "unsupported";
+}
+
+function getRenderableCharacter(character: string): string {
+  return superscriptDigits[character] ?? subscriptDigits[character] ?? character;
+}
+
+function splitTextIntoRuns(text: string): TextRun[] {
+  const runs: Array<{ text: string; renderText: string; kind: FontKind }> = [];
+
+  for (const character of text) {
+    const kind = getFontKind(character);
+    const renderCharacter = getRenderableCharacter(character);
+    const lastRun = runs[runs.length - 1];
+
+    if (lastRun?.kind === kind) {
+      lastRun.text += character;
+      lastRun.renderText += renderCharacter;
+    } else {
+      runs.push({ text: character, renderText: renderCharacter, kind });
+    }
+  }
+
+  return runs.map((run) => {
+    const font =
+      run.kind === "playpen"
+        ? playpenSans
+        : run.kind === "custom-math"
+          ? customMathFont
+          : run.kind === "math"
+            ? notoSansMath
+            : caveat;
+    const duration =
+      run.kind === "unsupported"
+        ? 0
+        : computeTimeline(run.renderText, font).totalDuration;
+
+    return { ...run, font, duration };
+  });
+}
+
 export default function TegakiTextRenderer({
   object,
   progress,
@@ -63,7 +190,6 @@ export default function TegakiTextRenderer({
   const scaleY = getNumber(p, "scale_y", 1);
 
   const highlight = getString(p, "highlight_color", "");
-
   const amount = Math.max(0, Math.min(1, progress));
 
   const transform = [
@@ -74,6 +200,79 @@ export default function TegakiTextRenderer({
 
   if (!text.trim()) return null;
 
+  const runs = splitTextIntoRuns(text);
+  const totalDuration = runs.reduce((total, run) => total + run.duration, 0);
+  let elapsed = 0;
+
+  const renderedRuns = runs.map((run, index) => {
+    if (run.kind === "unsupported") {
+      console.warn(
+        `[TutorMe] No Tegaki stroke data for character(s): ${JSON.stringify(run.text)}. Add these characters to a Tegaki font bundle before using them in lesson content.`
+      );
+
+      return (
+        <span
+          key={`unsupported-${index}`}
+          aria-label={`Unsupported handwriting character: ${run.text}`}
+          style={{ display: "none" }}
+        />
+      );
+    }
+
+    const start = elapsed;
+    elapsed += run.duration;
+
+    const localProgress =
+      run.duration <= 0 || totalDuration <= 0
+        ? amount
+        : Math.max(
+            0,
+            Math.min(1, (amount * totalDuration - start) / run.duration)
+          );
+
+    return (
+      <span
+        key={`${run.kind}-${index}`}
+        style={{
+          display: "inline-block",
+          whiteSpace: "pre-wrap",
+          verticalAlign:
+            run.kind === "superscript"
+              ? "super"
+              : run.kind === "subscript"
+                ? "sub"
+                : "baseline",
+        }}
+      >
+        <TegakiRenderer
+          font={run.font}
+          time={{
+            mode: "controlled",
+            value: localProgress,
+            unit: "progress",
+          }}
+          plugins={handwritingPlugins}
+          seed={getSeed(`${object.id}-${index}`)}
+          style={{
+            display: "inline-block",
+            width: "max-content",
+            maxWidth: "100%",
+            fontSize:
+              run.kind === "superscript" || run.kind === "subscript"
+                ? fontSize * SCRIPT_GLYPH_SCALE
+                : fontSize,
+            lineHeight: 1.4,
+            color,
+            whiteSpace: "pre-wrap",
+            margin: 0,
+          }}
+        >
+          {run.renderText}
+        </TegakiRenderer>
+      </span>
+    );
+  });
+
   return (
     <g
       transform={transform}
@@ -83,43 +282,22 @@ export default function TegakiTextRenderer({
           : undefined
       }
     >
-      <foreignObject
-        x={0}
-        y={-fontSize}
-        width={width}
-        height={height}
-      >
+      <foreignObject x={0} y={-fontSize} width={width} height={height}>
         <div
           style={{
             width: "100%",
             height: "100%",
             color,
             overflow: "hidden",
+            whiteSpace: "pre-wrap",
           }}
         >
-          <TegakiRenderer
-            font={caveat}
-            time={{
-              mode: "controlled",
-              value: amount,
-              unit: "progress",
-            }}
-            plugins={handwritingPlugins}
-            seed={getSeed(object.id)}
-            style={{
-              width: "100%",
-              height: "100%",
-              fontSize,
-              lineHeight: 1.4,
-              color,
-              whiteSpace: "pre-wrap",
-              margin: 0,
-            }}
-          >
-            {text}
-          </TegakiRenderer>
+          {renderedRuns}
         </div>
       </foreignObject>
     </g>
   );
 }
+
+
+

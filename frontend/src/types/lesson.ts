@@ -12,6 +12,15 @@ export interface PracticeQuestion {
   explanation: string;
 }
 
+// One synchronized explanation-and-visual segment inside a teaching step.
+export interface TeachingEvent {
+  id: string;
+  explanation: string;
+  visual_actions: VisualAction[];
+  expected_scene: Scene;
+  duration: number;
+}
+
 // One teaching step in a lesson.
 
 export interface TeachingStep {
@@ -19,6 +28,7 @@ export interface TeachingStep {
   explanation: string;
   equations: string[];
   visual_actions: VisualAction[];
+  teaching_events: TeachingEvent[];
   expected_scene: Scene;
   duration: number;
 }

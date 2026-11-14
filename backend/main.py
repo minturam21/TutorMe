@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from groq import Groq
+from services.ai_provider import AIProvider
 
 from database import (
     initialize_database,
@@ -24,10 +24,11 @@ from database import (
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env", override=True)
 
-api_key = os.getenv("GROQ_API_KEY")
-
-# Connect to Groq
-client = Groq(api_key=api_key) if api_key else None
+def get_ai_provider():
+    try:
+        return AIProvider()
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 # TutorMe system instructions
 
@@ -202,9 +203,17 @@ def home():
 
 @app.get("/health")
 def health():
+    provider = os.getenv("AI_PROVIDER", "gemini").strip().lower()
+    gemini_configured = bool(os.getenv("GEMINI_API_KEY"))
+    groq_configured = bool(os.getenv("GROQ_API_KEY"))
+    if provider == "gemini" and not gemini_configured and groq_configured:
+        provider = "groq"
     return {
         "status": "healthy",
-        "groq_configured": client is not None
+        "ai_provider": provider,
+        "ai_configured": gemini_configured if provider == "gemini" else groq_configured,
+        "gemini_configured": gemini_configured,
+        "groq_configured": groq_configured,
     }
 
 
@@ -241,12 +250,6 @@ def remove_conversation(conversation_id: int):
 # AI VISUAL LESSON GENERATION
 @app.post("/lesson")
 def generate_lesson(request: LessonRequest):
-
-    if not client:
-        raise HTTPException(
-            status_code=500,
-            detail="Groq API key is not configured."
-        )
 
     lesson_instructions = """
 You are TutorMe's expert visual lesson planner.
@@ -387,27 +390,22 @@ Before returning JSON, check:
 """
 
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+        provider = get_ai_provider()
+        content = provider.generate_response(
             messages=[
-                {
-                    "role": "system",
-                    "content": lesson_instructions
-                },
+                {"role": "system", "content": lesson_instructions},
                 {
                     "role": "user",
                     "content": (
                         f"Subject: {request.subject or 'Automatically identify'}\n"
                         f"Level: {request.level}\n"
                         f"Question: {request.message}"
-                    )
-                }
+                    ),
+                },
             ],
             temperature=0.2,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
-
-        content = response.choices[0].message.content
 
         if not content:
             raise ValueError("AI returned an empty response.")
@@ -438,6 +436,9 @@ Before returning JSON, check:
 
         return lesson
 
+    except HTTPException:
+        raise
+
     except json.JSONDecodeError as error:
         print(f"Lesson JSON parsing error: {error}")
         print(f"AI response: {content if 'content' in locals() else 'No response'}")
@@ -466,37 +467,24 @@ Before returning JSON, check:
 @app.post("/ask")
 def ask_tutor(question: Question):
 
-    if not client:
-        raise HTTPException(
-            status_code=500,
-            detail="Groq API key is not configured."
-        )
-
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+        provider = get_ai_provider()
+        answer = provider.generate_response(
             messages=[
-                {
-                    "role": "system",
-                    "content": TUTOR_INSTRUCTIONS
-                },
-                {
-                    "role": "user",
-                    "content": question.message
-                }
+                {"role": "system", "content": TUTOR_INSTRUCTIONS},
+                {"role": "user", "content": question.message},
             ],
-            temperature=0.6
+            temperature=0.6,
         )
+        return {"answer": answer}
 
-        return {
-            "answer": response.choices[0].message.content
-        }
-
+    except HTTPException:
+        raise
     except Exception as error:
-        print(f"Groq error: {error}")
+        print(f"AI provider error: {error}")
         raise HTTPException(
             status_code=500,
-            detail="Groq request failed. Check the backend terminal."
+            detail="AI request failed. Check the backend terminal."
         )
 
 
@@ -505,11 +493,7 @@ def ask_tutor(question: Question):
 @app.post("/ask/stream")
 def ask_tutor_stream(question: Question):
 
-    if not client:
-        raise HTTPException(
-            status_code=500,
-            detail="Groq API key is not configured."
-        )
+    provider = get_ai_provider()
 
     if question.conversation_id is not None:
         save_message(
@@ -552,19 +536,12 @@ def ask_tutor_stream(question: Question):
         full_response = ""
 
         try:
-            stream = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=messages_for_ai,
+            for content in provider.generate_stream(
+                messages_for_ai,
                 temperature=0.6,
-                stream=True
-            )
-
-            for chunk in stream:
-                content = chunk.choices[0].delta.content
-
-                if content:
-                    full_response += content
-                    yield content
+            ):
+                full_response += content
+                yield content
 
             if question.conversation_id is not None and full_response:
                 save_message(
@@ -574,7 +551,7 @@ def ask_tutor_stream(question: Question):
                 )
 
         except Exception as error:
-            print(f"Groq streaming error: {error}")
+            print(f"AI streaming error: {error}")
             yield "\n\n[TutorMe error: Check the backend terminal.]"
 
     return StreamingResponse(
