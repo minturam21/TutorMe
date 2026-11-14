@@ -61,6 +61,30 @@ class ProviderFallbackTests(unittest.TestCase):
         instance.fallback_model = "test-groq-model" if fallback else None
         return instance
 
+    def test_gemini_max_tokens_uses_groq_fallback(self):
+        provider = self.make_provider()
+        provider.client.models.generate_content.return_value = SimpleNamespace(
+            text='{"steps": [',
+            candidates=[
+                SimpleNamespace(finish_reason="MAX_TOKENS")
+            ],
+        )
+        provider.fallback_client.chat.completions.create.return_value = (
+            SimpleNamespace(
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(content='{"steps": []}')
+                )]
+            )
+        )
+
+        result = provider.generate_response(
+            [{"role": "user", "content": "Generate JSON"}],
+            response_format={"type": "json_object"},
+        )
+
+        self.assertEqual(result, '{"steps": []}')
+        provider.fallback_client.chat.completions.create.assert_called_once()
+
     def test_gemini_failure_uses_groq_fallback(self):
         provider = self.make_provider()
         provider.client.models.generate_content.side_effect = Exception("Gemini unavailable")
@@ -76,6 +100,63 @@ class ProviderFallbackTests(unittest.TestCase):
 
         self.assertEqual(result, "Fallback answer")
         provider.fallback_client.chat.completions.create.assert_called_once()
+
+    def test_gemini_fallback_converts_json_schema_to_json_object_mode(self):
+        provider = self.make_provider()
+        provider.client.models.generate_content.side_effect = Exception(
+            "Gemini unavailable"
+        )
+        provider.fallback_client.chat.completions.create.return_value = (
+            SimpleNamespace(
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(content='{"steps": []}')
+                )]
+            )
+        )
+
+        schema_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "test_response",
+                "strict": True,
+                "schema": {"type": "object", "properties": {}, "required": []},
+            },
+        }
+
+        provider.generate_response(
+            [{"role": "user", "content": "Generate JSON"}],
+            response_format=schema_format,
+        )
+
+        kwargs = provider.fallback_client.chat.completions.create.call_args.kwargs
+        self.assertEqual(kwargs["response_format"], {"type": "json_object"})
+
+    def test_direct_groq_converts_json_schema_to_json_object_mode(self):
+        provider = self.make_provider(provider="groq", fallback=False)
+        provider.client.chat.completions.create.return_value = (
+            SimpleNamespace(
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(content='{"steps": []}')
+                )]
+            )
+        )
+
+        schema_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "test_response",
+                "strict": True,
+                "schema": {"type": "object", "properties": {}, "required": []},
+            },
+        }
+
+        provider.generate_response(
+            [{"role": "user", "content": "Generate JSON"}],
+            response_format=schema_format,
+        )
+
+        kwargs = provider.client.chat.completions.create.call_args.kwargs
+        self.assertEqual(kwargs["response_format"], {"type": "json_object"})
 
     def test_both_provider_failures_are_reported(self):
         provider = self.make_provider()

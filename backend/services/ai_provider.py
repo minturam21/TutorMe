@@ -94,6 +94,13 @@ class AIProvider:
                     config["response_json_schema"] = schema
         return config
 
+    @staticmethod
+    def _groq_response_format(response_format: dict | None) -> dict | None:
+        """Use JSON-object mode for Groq; TutorMe validates the returned structure."""
+        if response_format and response_format.get("type") == "json_schema":
+            return {"type": "json_object"}
+        return response_format
+
     def generate_response(
         self,
         messages: list[dict],
@@ -113,6 +120,22 @@ class AIProvider:
                     contents=contents,
                     config=config,
                 )
+
+                candidates = getattr(response, "candidates", None) or []
+                finish_reason = (
+                    getattr(candidates[0], "finish_reason", None)
+                    if candidates else None
+                )
+                finish_reason_name = getattr(
+                    finish_reason, "name", str(finish_reason)
+                )
+
+                if finish_reason_name == "MAX_TOKENS":
+                    raise RuntimeError(
+                        "Gemini response was truncated because it reached "
+                        "the maximum output token limit."
+                    )
+
                 return response.text or ""
             except Exception as primary_error:
                 if self.fallback_client is None:
@@ -126,9 +149,18 @@ class AIProvider:
                         messages=messages,
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        response_format=response_format,
+                        response_format=self._groq_response_format(response_format),
                     )
-                    return fallback_response.choices[0].message.content or ""
+                    choice = fallback_response.choices[0]
+                    content = choice.message.content or ""
+                    usage = getattr(fallback_response, "usage", None)
+                    print(
+                        "[AI DIAGNOSTIC] Groq fallback:",
+                        "finish_reason=", getattr(choice, "finish_reason", None),
+                        "completion_tokens=", getattr(usage, "completion_tokens", None),
+                        "content_chars=", len(content),
+                    )
+                    return content
                 except Exception as fallback_error:
                     raise RuntimeError(
                         f"Gemini API request failed: {primary_error}; "
@@ -141,7 +173,7 @@ class AIProvider:
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                response_format=response_format,
+                response_format=self._groq_response_format(response_format),
             )
             return response.choices[0].message.content or ""
         except Exception as error:
